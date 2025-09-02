@@ -1,5 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Known unsupported websites that require special activation
+const UNSUPPORTED_WEBSITES = [
+  'x.com',
+  'twitter.com',
+  'facebook.com',
+  'instagram.com',
+  'linkedin.com',
+  'tiktok.com',
+  'youtube.com'
+];
+
+// Function to check if a URL is from an unsupported domain
+function isUnsupportedWebsite(url: string): boolean {
+  try {
+    const domain = new URL(url).hostname.toLowerCase();
+    return UNSUPPORTED_WEBSITES.some(unsupported => 
+      domain === unsupported || domain.endsWith(`.${unsupported}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Function to sanitize smart quotes and other problematic characters
 function sanitizeQuotes(text: string): string {
   return text
@@ -25,6 +48,23 @@ export async function POST(request: NextRequest) {
         success: false,
         error: 'URL is required'
       }, { status: 400 });
+    }
+    
+    // Check if the website is known to be unsupported
+    if (isUnsupportedWebsite(url)) {
+      return NextResponse.json({
+        success: false,
+        error: `The website ${url} is not supported by our scraping service.`,
+        fallback: {
+          url,
+          message: 'This website requires special activation and cannot be scraped.',
+          suggestions: [
+            'Try a different website',
+            'Use a publicly accessible website',
+            'Contact support if you need access to this specific website'
+          ]
+        }
+      }, { status: 403 });
     }
     
     console.log('[scrape-url-enhanced] Scraping with Firecrawl:', url);
@@ -90,7 +130,17 @@ export async function POST(request: NextRequest) {
         throw new Error(`Scraping timeout for ${url}. The website may be slow or unresponsive. Please try again or use a different URL.`);
       }
       
-      throw new Error(`Firecrawl API error: ${error}`);
+      // Handle unsupported websites
+      if (error.includes('no longer supported') || error.includes('not supported')) {
+        throw new Error(`The website ${url} is not supported by our scraping service. Please try a different website or contact support for assistance.`);
+      }
+      
+      // Handle blocked websites
+      if (error.includes('blocked') || error.includes('forbidden')) {
+        throw new Error(`Access to ${url} is blocked. This website may have restrictions that prevent scraping.`);
+      }
+      
+      throw new Error(`Scraping failed for ${url}. Please try a different website.`);
     }
     
     const data = await firecrawlResponse.json();
@@ -156,6 +206,23 @@ ${sanitizedMarkdown}
           ]
         }
       }, { status: 408 }); // 408 Request Timeout
+    }
+    
+    // Provide a fallback response for unsupported websites
+    if ((error as Error).message.includes('not supported') || (error as Error).message.includes('blocked')) {
+      return NextResponse.json({
+        success: false,
+        error: (error as Error).message,
+        fallback: {
+          url,
+          message: 'This website cannot be scraped due to restrictions or limitations.',
+          suggestions: [
+            'Try a different website',
+            'Use a publicly accessible website',
+            'Check if the website allows scraping'
+          ]
+        }
+      }, { status: 403 }); // 403 Forbidden
     }
     
     return NextResponse.json({

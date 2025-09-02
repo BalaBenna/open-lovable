@@ -63,7 +63,17 @@ export async function POST(req: NextRequest) {
         throw new Error(`Screenshot capture timeout for ${url}. The website may be slow or unresponsive. Please try again or use a different URL.`);
       }
       
-      throw new Error(`Firecrawl API error: ${error}`);
+      // Handle unsupported websites
+      if (error.includes('no longer supported') || error.includes('not supported')) {
+        throw new Error(`The website ${url} is not supported by our screenshot service. Please try a different website.`);
+      }
+      
+      // Handle blocked websites
+      if (error.includes('blocked') || error.includes('forbidden')) {
+        throw new Error(`Access to ${url} is blocked. This website may have restrictions that prevent screenshot capture.`);
+      }
+      
+      throw new Error(`Screenshot capture failed for ${url}. Please try a different website.`);
     }
 
     const data = await firecrawlResponse.json();
@@ -96,6 +106,23 @@ export async function POST(req: NextRequest) {
           ]
         }
       }, { status: 408 }); // 408 Request Timeout
+    }
+    
+    // Provide a fallback response for unsupported websites
+    if (error.message?.includes('not supported') || error.message?.includes('blocked')) {
+      return NextResponse.json({ 
+        success: false,
+        error: error.message || 'Screenshot capture not supported',
+        fallback: {
+          url,
+          message: 'This website cannot be captured due to restrictions or limitations.',
+          suggestions: [
+            'Try a different website',
+            'Use a publicly accessible website',
+            'Check if the website allows screenshot capture'
+          ]
+        }
+      }, { status: 403 }); // 403 Forbidden
     }
     
     return NextResponse.json({ 
