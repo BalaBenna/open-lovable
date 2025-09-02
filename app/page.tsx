@@ -3259,12 +3259,45 @@ Focus on the key sections and content, making it clean and modern.`;
       )}
       
       <div className="bg-card px-4 py-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center">
           <img
             src="/firecrawl-logo-with-fire.webp"
             alt="Firecrawl"
             className="h-8 w-auto"
           />
+          
+          <div className="w-[250px]"></div>
+          
+          {/* Code/Preview Toggle */}
+          <div className="flex bg-[#36322F] rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('generation')}
+              className={`p-2 rounded-md transition-all ${
+                activeTab === 'generation' 
+                  ? 'bg-black text-white' 
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+              }`}
+              title="Code"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setActiveTab('preview')}
+              className={`p-2 rounded-md transition-all ${
+                activeTab === 'preview' 
+                  ? 'bg-black text-white' 
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+              }`}
+              title="Preview"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {/* Model Selector - Left side */}
@@ -3595,37 +3628,6 @@ Focus on the key sections and content, making it clean and modern.`;
         {/* Right Panel - Preview or Generation (2/3 of remaining width) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="px-4 py-2 bg-card border-b border-border flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <div className="flex bg-[#36322F] rounded-lg p-1">
-                <button
-                  onClick={() => setActiveTab('generation')}
-                  className={`p-2 rounded-md transition-all ${
-                    activeTab === 'generation' 
-                      ? 'bg-black text-white' 
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
-                  title="Code"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`p-2 rounded-md transition-all ${
-                    activeTab === 'preview' 
-                      ? 'bg-black text-white' 
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
-                  title="Preview"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
             <div className="flex gap-2 items-center">
               {/* Live Code Generation Status - Moved to far right */}
               {activeTab === 'generation' && (generationProgress.isGenerating || generationProgress.files.length > 0) && (
