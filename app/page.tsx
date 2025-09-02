@@ -76,6 +76,8 @@ export default function AISandboxPage() {
   const [activeTab, setActiveTab] = useState<'generation' | 'preview'>('preview');
   const [showStyleSelector, setShowStyleSelector] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<'url' | 'description'>('url');
+  const [descriptionInput, setDescriptionInput] = useState('');
   const [showLoadingBackground, setShowLoadingBackground] = useState(false);
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
@@ -1490,6 +1492,61 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       return;
     }
     
+    // Check if this is a website generation request
+    if (lowerMessage.includes('create a website') || 
+        lowerMessage.includes('build a website') ||
+        lowerMessage.includes('generate a website') ||
+        lowerMessage.includes('make a website') ||
+        lowerMessage.includes('design a website') ||
+        lowerMessage.includes('website for') ||
+        lowerMessage.includes('landing page') ||
+        lowerMessage.includes('portfolio website') ||
+        lowerMessage.includes('business website')) {
+      
+      addChatMessage('I\'ll help you create a website! Let me analyze your request and generate the code...', 'ai');
+      
+      try {
+        const response = await fetch('/api/generate-website-from-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            description: message,
+            model: aiModel,
+            sandboxId: sandboxData?.sandboxId
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to generate website');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.generatedCode) {
+          addChatMessage('Here\'s the website code I generated for you:', 'ai');
+          addChatMessage(data.generatedCode, 'ai');
+          
+          // Parse and apply the generated code
+          const files = parseGeneratedCode(data.generatedCode);
+          for (const file of files) {
+            addChatMessage(`Creating ${file.path}...`, 'system');
+            await applyCodeToSandbox(file.content, file.path);
+          }
+          
+          addChatMessage('Website generated and applied successfully! Check the preview to see your creation.', 'ai');
+        } else {
+          throw new Error(data.error || 'Failed to generate website');
+        }
+        
+      } catch (error) {
+        console.error('Error generating website from chat:', error);
+        addChatMessage(`Error generating website: ${(error as Error).message}`, 'error');
+        addChatMessage('You can also try using the "Describe Website" mode on the home screen for a more structured approach.', 'ai');
+      }
+      
+      return;
+    }
+    
     // Start sandbox creation in parallel if needed
     let sandboxPromise: Promise<void> | null = null;
     let sandboxCreating = false;
@@ -2348,8 +2405,118 @@ Focus on the key sections and content, making it clean and modern while preservi
     }
   };
 
+  const parseGeneratedCode = (text: string): Array<{path: string, content: string}> => {
+    const files: Array<{path: string, content: string}> = [];
+    
+    // Look for file blocks in the response
+    const fileRegex = /<file path="([^"]+)">\s*([\s\S]*?)<\/file>/g;
+    let match;
+    
+    while ((match = fileRegex.exec(text)) !== null) {
+      const path = match[1];
+      const content = match[2].trim();
+      files.push({ path, content });
+    }
+    
+    // If no files were found in XML blocks, try to extract from the text
+    if (files.length === 0) {
+      // Look for React code patterns
+      if (text.includes('import React') || text.includes('function App') || text.includes('const App')) {
+        files.push({
+          path: 'src/App.jsx',
+          content: text
+        });
+      }
+    }
+    
+    return files;
+  };
+
+  const generateWebsiteFromDescription = async (description: string) => {
+    try {
+      addChatMessage(`Analyzing your description: "${description}"`, 'system');
+      addChatMessage('Planning website structure and components...', 'system');
+      
+      const response = await fetch('/api/generate-website-from-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          description,
+          model: aiModel
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate website from description');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.files) {
+        if (data.analysis) {
+          addChatMessage(`Website type: ${data.analysis.websiteType}`, 'system');
+          addChatMessage(`Components: ${data.analysis.components.join(', ')}`, 'system');
+          addChatMessage(`Style: ${data.analysis.style} with ${data.analysis.colorScheme} theme`, 'system');
+        }
+        
+        addChatMessage(`Generated ${data.files.length} files from your description!`, 'system');
+        
+        if (data.fallback) {
+          addChatMessage('Note: Using fallback template due to generation issues', 'system');
+        }
+        
+        // Apply the generated files to the sandbox
+        for (const file of data.files) {
+          addChatMessage(`Creating ${file.path}...`, 'system');
+          await applyCodeToSandbox(file.content, file.path);
+        }
+        
+        addChatMessage('Website generated successfully! Check the preview to see your creation.', 'system');
+      } else {
+        throw new Error(data.error || 'Failed to generate website');
+      }
+      
+    } catch (error) {
+      console.error('Error generating website from description:', error);
+      addChatMessage(`Error generating website: ${(error as Error).message}`, 'error');
+      addChatMessage('Please try a different description or check your API keys.', 'system');
+    }
+  };
+
   const handleHomeScreenSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (inputMode === 'description') {
+      if (!descriptionInput.trim()) return;
+      
+      setHomeScreenFading(true);
+      setShowLoadingBackground(true);
+      setLoadingStage('generating');
+      
+      // Clear messages and immediately show the generation message
+      setChatMessages([]);
+      addChatMessage(`Starting to generate website from your description...`, 'system');
+      
+      // Start creating sandbox immediately
+      const sandboxPromise = !sandboxData ? createSandbox(true) : Promise.resolve();
+      
+      setTimeout(async () => {
+        setShowHomeScreen(false);
+        setHomeScreenFading(false);
+        
+        // Wait for sandbox to be ready
+        await sandboxPromise;
+        
+        // Generate website from description
+        await generateWebsiteFromDescription(descriptionInput);
+        
+        setLoadingStage(null);
+        setShowLoadingBackground(false);
+      }, 500);
+      
+      return;
+    }
+    
     if (!homeUrlInput.trim()) return;
     
     setHomeScreenFading(true);
@@ -2806,57 +2973,125 @@ Focus on the key sections and content, making it clean and modern.`;
                 <motion.p 
                   className="text-base lg:text-lg max-w-lg mx-auto mt-2.5 text-zinc-500 text-center text-balance"
                   animate={{
-                    opacity: showStyleSelector ? 0.7 : 1
+                    opacity: (showStyleSelector || inputMode === 'description') ? 0.7 : 1
                   }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
                 >
-                  Re-imagine any website, in seconds.
+                  {inputMode === 'url' ? 'Re-imagine any website, in seconds.' : 'Create any website from your imagination, in seconds.'}
                 </motion.p>
               </div>
               
-              <form onSubmit={handleHomeScreenSubmit} className="mt-5 max-w-3xl mx-auto">
-                <div className="w-full relative group">
-                  <input
-                    type="text"
-                    value={homeUrlInput}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setHomeUrlInput(value);
-                      
-                      // Check if it's a valid domain
-                      const domainRegex = /^(https?:\/\/)?(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})(\/?.*)?$/;
-                      if (domainRegex.test(value) && value.length > 5) {
-                        // Small delay to make the animation feel smoother
-                        setTimeout(() => setShowStyleSelector(true), 100);
-                      } else {
+              {/* Input Mode Toggle */}
+              <div className="mt-5 max-w-3xl mx-auto">
+                <div className="flex justify-center mb-4">
+                  <div className="flex items-center bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl p-1 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInputMode('url');
                         setShowStyleSelector(false);
                         setSelectedStyle(null);
-                      }
-                    }}
-                    placeholder=" "
-                    aria-placeholder="https://firecrawl.dev"
-                    className="h-[3.25rem] w-full resize-none focus-visible:outline-none focus-visible:ring-orange-500 focus-visible:ring-2 rounded-[18px] text-sm text-[#36322F] px-4 pr-12 border-[.75px] border-border bg-white"
-                    style={{
-                      boxShadow: '0 0 0 1px #e3e1de66, 0 1px 2px #5f4a2e14, 0 4px 6px #5f4a2e0a, 0 40px 40px -24px #684b2514',
-                      filter: 'drop-shadow(rgba(249, 224, 184, 0.3) -0.731317px -0.731317px 35.6517px)'
-                    }}
-                    autoFocus
-                  />
-                  <div 
-                    aria-hidden="true" 
-                    className={`absolute top-1/2 -translate-y-1/2 left-4 pointer-events-none text-sm text-opacity-50 text-start transition-opacity ${
-                      homeUrlInput ? 'opacity-0' : 'opacity-100'
-                    }`}
-                  >
-                    <span className="text-[#605A57]/50" style={{ fontFamily: 'monospace' }}>
-                      https://firecrawl.dev
-                    </span>
+                      }}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                        inputMode === 'url'
+                          ? 'bg-orange-500 text-white shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                      }`}
+                    >
+                      Clone Website
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInputMode('description');
+                        setShowStyleSelector(false);
+                        setSelectedStyle(null);
+                      }}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                        inputMode === 'description'
+                          ? 'bg-orange-500 text-white shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                      }`}
+                    >
+                      Describe Website
+                    </button>
                   </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleHomeScreenSubmit} className="mt-2 max-w-3xl mx-auto">
+                <div className="w-full relative group">
+                  {inputMode === 'url' ? (
+                    <>
+                      <input
+                        type="text"
+                        value={homeUrlInput}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setHomeUrlInput(value);
+                          
+                          // Check if it's a valid domain
+                          const domainRegex = /^(https?:\/\/)?(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,})(\/?.*)?$/;
+                          if (domainRegex.test(value) && value.length > 5) {
+                            // Small delay to make the animation feel smoother
+                            setTimeout(() => setShowStyleSelector(true), 100);
+                          } else {
+                            setShowStyleSelector(false);
+                            setSelectedStyle(null);
+                          }
+                        }}
+                        placeholder=" "
+                        aria-placeholder="https://firecrawl.dev"
+                        className="h-[3.25rem] w-full resize-none focus-visible:outline-none focus-visible:ring-orange-500 focus-visible:ring-2 rounded-[18px] text-sm text-[#36322F] px-4 pr-12 border-[.75px] border-border bg-white"
+                        style={{
+                          boxShadow: '0 0 0 1px #e3e1de66, 0 1px 2px #5f4a2e14, 0 4px 6px #5f4a2e0a, 0 40px 40px -24px #684b2514',
+                          filter: 'drop-shadow(rgba(249, 224, 184, 0.3) -0.731317px -0.731317px 35.6517px)'
+                        }}
+                        autoFocus
+                      />
+                      <div 
+                        aria-hidden="true" 
+                        className={`absolute top-1/2 -translate-y-1/2 left-4 pointer-events-none text-sm text-opacity-50 text-start transition-opacity ${
+                          homeUrlInput ? 'opacity-0' : 'opacity-100'
+                        }`}
+                      >
+                        <span className="text-[#605A57]/50" style={{ fontFamily: 'monospace' }}>
+                          https://firecrawl.dev
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <textarea
+                        value={descriptionInput}
+                        onChange={(e) => setDescriptionInput(e.target.value)}
+                        placeholder=" "
+                        aria-placeholder="Describe the website you want to create..."
+                        className="h-[3.25rem] w-full resize-none focus-visible:outline-none focus-visible:ring-orange-500 focus-visible:ring-2 rounded-[18px] text-sm text-[#36322F] px-4 pr-12 py-3 border-[.75px] border-border bg-white"
+                        style={{
+                          boxShadow: '0 0 0 1px #e3e1de66, 0 1px 2px #5f4a2e14, 0 4px 6px #5f4a2e0a, 0 40px 40px -24px #684b2514',
+                          filter: 'drop-shadow(rgba(249, 224, 184, 0.3) -0.731317px -0.731317px 35.6517px)'
+                        }}
+                        autoFocus
+                        rows={1}
+                      />
+                      <div 
+                        aria-hidden="true" 
+                        className={`absolute top-1/2 -translate-y-1/2 left-4 pointer-events-none text-sm text-opacity-50 text-start transition-opacity ${
+                          descriptionInput ? 'opacity-0' : 'opacity-100'
+                        }`}
+                      >
+                        <span className="text-[#605A57]/50">
+                          Describe the website you want to create...
+                        </span>
+                      </div>
+                    </>
+                  )}
                   <button
                     type="submit"
-                    disabled={!homeUrlInput.trim()}
+                    disabled={inputMode === 'url' ? !homeUrlInput.trim() : !descriptionInput.trim()}
                     className="absolute top-1/2 transform -translate-y-1/2 right-2 flex h-10 items-center justify-center rounded-md px-3 text-sm font-medium text-zinc-500 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title={selectedStyle ? `Clone with ${selectedStyle} Style` : 'Clone Website'}
+                    title={inputMode === 'url' ? (selectedStyle ? `Clone with ${selectedStyle} Style` : 'Clone Website') : 'Generate Website'}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                       <polyline points="9 10 4 15 9 20"></polyline>
@@ -2865,8 +3100,8 @@ Focus on the key sections and content, making it clean and modern.`;
                   </button>
                 </div>
                   
-                  {/* Style Selector - Slides out when valid domain is entered */}
-                  {showStyleSelector && (
+                  {/* Style Selector - Slides out when valid domain is entered (only for URL mode) */}
+                  {inputMode === 'url' && showStyleSelector && (
                     <div className="overflow-hidden mt-4">
                       <div className={`transition-all duration-500 ease-out transform ${
                         showStyleSelector ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
@@ -2957,6 +3192,36 @@ Focus on the key sections and content, making it clean and modern.`;
                         />
                       </div>
                     </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Description Examples - Show when in description mode */}
+                  {inputMode === 'description' && (
+                    <div className="overflow-hidden mt-4">
+                      <div className="transition-all duration-500 ease-out transform translate-y-0 opacity-100">
+                        <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl p-4 shadow-sm">
+                          <p className="text-sm text-gray-600 mb-3 font-medium">Try these examples:</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {[
+                              'A modern portfolio website for a graphic designer with dark theme, project gallery, and contact form',
+                              'A landing page for a SaaS product with hero section, features list, pricing table, and testimonials',
+                              'A restaurant website with hero image, menu section, location map, and reservation form',
+                              'An e-commerce store for handmade jewelry with product grid, shopping cart, and checkout process',
+                              'A blog website with header, article list, sidebar, and social media links',
+                              'A fitness app landing page with workout plans, progress tracking, and user testimonials'
+                            ].map((example, index) => (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => setDescriptionInput(example)}
+                                className="text-left p-3 text-sm text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors duration-200"
+                              >
+                                {example}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -3303,7 +3568,7 @@ Focus on the key sections and content, making it clean and modern.`;
             <div className="relative">
               <Textarea
                 className="min-h-[60px] pr-12 resize-y border-2 border-black focus:outline-none"
-                placeholder=""
+                placeholder="Describe what you want to build... (e.g., 'Create a website for my restaurant' or 'Build a portfolio site')"
                 value={aiChatInput}
                 onChange={(e) => setAiChatInput(e.target.value)}
                 onKeyDown={(e) => {
