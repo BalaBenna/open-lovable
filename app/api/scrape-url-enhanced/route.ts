@@ -34,31 +34,62 @@ export async function POST(request: NextRequest) {
       throw new Error('FIRECRAWL_API_KEY environment variable is not set');
     }
     
-    // Make request to Firecrawl API with maxAge for 500% faster scraping
-    const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        url,
-        formats: ['markdown', 'html'],
-        waitFor: 3000,
-        timeout: 30000,
-        blockAds: true,
-        maxAge: 3600000, // Use cached data if less than 1 hour old (500% faster!)
-        actions: [
-          {
-            type: 'wait',
-            milliseconds: 2000
-          }
-        ]
-      })
-    });
+    // Make request to Firecrawl API with increased timeout and retry logic
+    let firecrawlResponse;
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        console.log(`[scrape-url-enhanced] Attempt ${retryCount + 1} for URL: ${url}`);
+        
+        firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            url,
+            formats: ['markdown', 'html'],
+            waitFor: 2000, // Reduced wait time
+            timeout: 60000, // Increased timeout to 60 seconds
+            blockAds: true,
+            maxAge: 3600000, // Use cached data if less than 1 hour old (500% faster!)
+            actions: [
+              {
+                type: 'wait',
+                milliseconds: 1000 // Reduced wait time
+              }
+            ]
+          })
+        });
+        
+        // If we get a response, break out of retry loop
+        break;
+        
+      } catch (error) {
+        retryCount++;
+        console.warn(`[scrape-url-enhanced] Attempt ${retryCount} failed:`, error);
+        
+        if (retryCount > maxRetries) {
+          throw error;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
     
     if (!firecrawlResponse.ok) {
       const error = await firecrawlResponse.text();
+      console.error(`[scrape-url-enhanced] Firecrawl API error: ${error}`);
+      
+      // Handle specific timeout errors
+      if (error.includes('SCRAPE_TIMEOUT') || error.includes('timeout')) {
+        throw new Error(`Scraping timeout for ${url}. The website may be slow or unresponsive. Please try again or use a different URL.`);
+      }
+      
       throw new Error(`Firecrawl API error: ${error}`);
     }
     
@@ -109,6 +140,24 @@ ${sanitizedMarkdown}
     
   } catch (error) {
     console.error('[scrape-url-enhanced] Error:', error);
+    
+    // Provide a fallback response for timeout errors
+    if ((error as Error).message.includes('timeout') || (error as Error).message.includes('SCRAPE_TIMEOUT')) {
+      return NextResponse.json({
+        success: false,
+        error: (error as Error).message,
+        fallback: {
+          url,
+          message: 'The website is taking too long to respond. This could be due to slow loading times, heavy content, or server issues.',
+          suggestions: [
+            'Try again in a few moments',
+            'Check if the website is accessible in your browser',
+            'Try a different URL if available'
+          ]
+        }
+      }, { status: 408 }); // 408 Request Timeout
+    }
+    
     return NextResponse.json({
       success: false,
       error: (error as Error).message
