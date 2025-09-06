@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
     const { text: analysisText } = await generateText({
       model: provider,
       temperature: 0.3,
-      maxTokens: 1000,
       system: `You are a web development planning expert. Analyze the user's description and create a detailed plan for the website structure.`,
       prompt: `Analyze this website description and create a detailed plan: "${description}"
 
@@ -95,7 +94,6 @@ Focus on creating a clear, actionable plan for the website.`
     const { text: appCode } = await generateText({
       model: provider,
       temperature: appConfig.ai.defaultTemperature,
-      maxTokens: 2000,
       system: `You are an expert React developer. Create a complete App.jsx file based on the website plan.
 
 IMPORTANT INSTRUCTIONS:
@@ -133,7 +131,6 @@ Generate a complete, working App.jsx file that imports and uses all the necessar
         const { text: componentCode } = await generateText({
           model: provider,
           temperature: appConfig.ai.defaultTemperature,
-          maxTokens: 1500,
           system: `You are an expert React developer. Create a complete React component.
 
 IMPORTANT INSTRUCTIONS:
@@ -285,7 +282,7 @@ body {
       success: true,
       description,
       files: fallbackFiles,
-      model: actualModel || 'openai/gpt-5',
+      model: model || 'openai/gpt-5',
       analysis: {
         websiteType: "business",
         mainSections: ["hero", "features"],

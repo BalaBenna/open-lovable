@@ -104,7 +104,10 @@ export async function POST(request: NextRequest) {
         aiModel = openai(model.replace('openai/', ''));
       }
     } else if (model.startsWith('google/')) {
-      aiModel = createGoogleGenerativeAI(model.replace('google/', ''));
+      const googleProvider = createGoogleGenerativeAI({
+        apiKey: process.env.GOOGLE_API_KEY || ''
+      });
+      aiModel = googleProvider(model.replace('google/', ''));
     } else {
       // Default to groq if model format is unclear
       aiModel = groq(model);

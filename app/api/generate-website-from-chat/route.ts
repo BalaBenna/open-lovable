@@ -44,7 +44,6 @@ export async function POST(request: NextRequest) {
     const result = await streamText({
       model: provider,
       temperature: appConfig.ai.defaultTemperature,
-      maxTokens: appConfig.ai.maxTokens,
       system: `You are an expert web developer and designer. Create a complete, modern React website based on the user's natural language description.
 
 IMPORTANT INSTRUCTIONS:

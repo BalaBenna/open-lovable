@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
+  let url = '';
   try {
-    const { url } = await req.json();
+    const requestData = await req.json();
+    url = requestData.url;
     
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
@@ -54,8 +56,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!firecrawlResponse.ok) {
-      const error = await firecrawlResponse.text();
+    if (!firecrawlResponse || !firecrawlResponse.ok) {
+      const error = firecrawlResponse ? await firecrawlResponse.text() : 'No response received';
       console.error(`[scrape-screenshot] Firecrawl API error: ${error}`);
       
       // Handle specific timeout errors

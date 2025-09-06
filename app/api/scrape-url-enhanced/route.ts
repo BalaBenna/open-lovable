@@ -40,8 +40,10 @@ function sanitizeQuotes(text: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  let url = '';
   try {
-    const { url } = await request.json();
+    const requestData = await request.json();
+    url = requestData.url;
     
     if (!url) {
       return NextResponse.json({
@@ -121,8 +123,8 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    if (!firecrawlResponse.ok) {
-      const error = await firecrawlResponse.text();
+    if (!firecrawlResponse || !firecrawlResponse.ok) {
+      const error = firecrawlResponse ? await firecrawlResponse.text() : 'No response received';
       console.error(`[scrape-url-enhanced] Firecrawl API error: ${error}`);
       
       // Handle specific timeout errors

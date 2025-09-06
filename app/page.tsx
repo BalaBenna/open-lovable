@@ -22,12 +22,67 @@ import {
 } from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
+import MermaidDiagram from '@/components/MermaidDiagram';
 
 interface SandboxData {
   sandboxId: string;
   url: string;
   [key: string]: any;
 }
+
+// Function to render chat content with Mermaid diagram support
+const renderChatContent = (content: string) => {
+  // Check if content contains Mermaid diagram
+  const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mermaidRegex.exec(content)) !== null) {
+    // Add text before the diagram
+    if (match.index > lastIndex) {
+      const textBefore = content.slice(lastIndex, match.index);
+      if (textBefore.trim()) {
+        parts.push(
+          <span key={`text-${lastIndex}`} className="whitespace-pre-wrap">
+            {textBefore}
+          </span>
+        );
+      }
+    }
+
+    // Add the Mermaid diagram
+    const diagramContent = match[1].trim();
+    parts.push(
+      <MermaidDiagram 
+        key={`mermaid-${match.index}`}
+        chart={diagramContent}
+        id={`chat-mermaid-${match.index}`}
+      />
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after the last diagram
+  if (lastIndex < content.length) {
+    const remainingText = content.slice(lastIndex);
+    if (remainingText.trim()) {
+      parts.push(
+        <span key={`text-${lastIndex}`} className="whitespace-pre-wrap">
+          {remainingText}
+        </span>
+      );
+    }
+  }
+
+  // If no Mermaid diagrams found, return original content
+  if (parts.length === 0) {
+    return <span className="whitespace-pre-wrap">{content}</span>;
+  }
+
+  return <div className="space-y-2">{parts}</div>;
+};
 
 interface ChatMessage {
   content: string;
@@ -532,7 +587,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                   } else if (data.message.includes('Creating files') || data.message.includes('Applying')) {
                     setCodeApplicationState({ 
                       stage: 'applying',
-                      filesGenerated: results.filesCreated 
+                      filesGenerated: data.filesCreated || 0 
                     });
                   }
                   break;
@@ -693,22 +748,22 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           log(data.explanation);
         }
         
-        if (data.autoCompleted) {
+        if ((data as any).autoCompleted) {
           log('Auto-generating missing components...', 'command');
           
-          if (data.autoCompletedComponents) {
+          if ((data as any).autoCompletedComponents) {
             setTimeout(() => {
               log('Auto-generated missing components:', 'info');
-              data.autoCompletedComponents.forEach((comp: string) => {
+              (data as any).autoCompletedComponents.forEach((comp: string) => {
                 log(`  ${comp}`, 'command');
               });
             }, 1000);
           }
-        } else if (data.warning) {
-          log(data.warning, 'error');
+        } else if ((data as any).warning) {
+          log((data as any).warning, 'error');
           
-          if (data.missingImports && data.missingImports.length > 0) {
-            const missingList = data.missingImports.join(', ');
+          if ((data as any).missingImports && (data as any).missingImports.length > 0) {
+            const missingList = (data as any).missingImports.join(', ');
             addChatMessage(
               `Ask me to "create the missing components: ${missingList}" to fix these import errors.`,
               'system'
@@ -718,7 +773,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         
         log('Code applied successfully!');
         console.log('[applyGeneratedCode] Response data:', data);
-        console.log('[applyGeneratedCode] Debug info:', data.debug);
+        console.log('[applyGeneratedCode] Debug info:', (data as any).debug);
         console.log('[applyGeneratedCode] Current sandboxData:', sandboxData);
         console.log('[applyGeneratedCode] Current iframe element:', iframeRef.current);
         console.log('[applyGeneratedCode] Current iframe src:', iframeRef.current?.src);
@@ -1013,7 +1068,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                       // Create a map of edited files
                       const editedFiles = new Set(
                         generationProgress.files
-                          .filter(f => f.edited)
+                          .filter(f => (f as any).edited)
                           .map(f => f.path)
                       );
                       
@@ -1026,7 +1081,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                         if (!fileTree[dir]) fileTree[dir] = [];
                         fileTree[dir].push({
                           name: fileName,
-                          edited: file.edited || false
+                          edited: (file as any).edited || false
                         });
                       });
                       
@@ -1530,7 +1585,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           const files = parseGeneratedCode(data.generatedCode);
           for (const file of files) {
             addChatMessage(`Creating ${file.path}...`, 'system');
-            await applyCodeToSandbox(file.content, file.path);
+            await applyGeneratedCode(file.content, false);
           }
           
           addChatMessage('Website generated and applied successfully! Check the preview to see your creation.', 'ai');
@@ -1707,7 +1762,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                               type: fileType,
                               completed: true,
                               edited: true
-                            },
+                            } as any,
                             ...updatedState.files.slice(existingFileIndex + 1)
                           ];
                         } else {
@@ -1718,7 +1773,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             type: fileType,
                             completed: true,
                             edited: false
-                          }];
+                          } as any];
                         }
                         
                         // Only show file status if not in edit mode
@@ -2468,7 +2523,7 @@ Focus on the key sections and content, making it clean and modern while preservi
         // Apply the generated files to the sandbox
         for (const file of data.files) {
           addChatMessage(`Creating ${file.path}...`, 'system');
-          await applyCodeToSandbox(file.content, file.path);
+          await applyGeneratedCode(file.content, false);
         }
         
         addChatMessage('Website generated successfully! Check the preview to see your creation.', 'system');
@@ -2754,7 +2809,7 @@ Focus on the key sections and content, making it clean and modern.`;
                               type: fileType,
                               completed: true,
                               edited: true
-                            },
+                            } as any,
                             ...updatedState.files.slice(existingFileIndex + 1)
                           ];
                         } else {
@@ -2765,7 +2820,7 @@ Focus on the key sections and content, making it clean and modern.`;
                             type: fileType,
                             completed: true,
                             edited: false
-                          }];
+                          } as any];
                         }
                         
                         // Only show file status if not in edit mode
@@ -3248,7 +3303,7 @@ Focus on the key sections and content, making it clean and modern.`;
                 >
                   {appConfig.ai.availableModels.map(model => (
                     <option key={model} value={model}>
-                      {appConfig.ai.modelDisplayNames[model] || model}
+                      {(appConfig.ai.modelDisplayNames as any)[model] || model}
                     </option>
                   ))}
                 </select>
@@ -3317,7 +3372,7 @@ Focus on the key sections and content, making it clean and modern.`;
           >
             {appConfig.ai.availableModels.map(model => (
               <option key={model} value={model}>
-                {appConfig.ai.modelDisplayNames[model] || model}
+                {(appConfig.ai.modelDisplayNames as any)[model] || model}
               </option>
             ))}
           </select>
@@ -3449,7 +3504,7 @@ Focus on the key sections and content, making it clean and modern.`;
                         </div>
                       </div>
                     ) : (
-                      msg.content
+                      renderChatContent(msg.content)
                     )}
                       </div>
                   

@@ -156,6 +156,63 @@ export async function POST(request: NextRequest) {
         
         // No keep-alive needed - sandbox provisioned for 10 minutes
         
+        // Check for website references and scrape them automatically
+        let websiteContext = '';
+        console.log('[generate-ai-code-stream] Analyzing user prompt for website references...');
+        
+        try {
+          const websiteAnalysisResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analyze-website-intent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: prompt })
+          });
+          
+          if (websiteAnalysisResponse.ok) {
+            const websiteAnalysis = await websiteAnalysisResponse.json();
+            
+            if (websiteAnalysis.success && websiteAnalysis.hasWebsiteReferences) {
+              console.log('[generate-ai-code-stream] Website references detected:', websiteAnalysis.allDetectedUrls);
+              
+              if (websiteAnalysis.websiteData) {
+                const { websiteData } = websiteAnalysis;
+                websiteContext = `
+
+## WEBSITE REFERENCE CONTEXT
+**Scraped Website**: ${websiteData.url}
+**Title**: ${websiteData.title}
+**Description**: ${websiteData.description}
+
+**Design Patterns Detected**:
+- Colors: ${websiteData.designPatterns.colors.join(', ') || 'None detected'}
+- Components: ${websiteData.designPatterns.components.join(', ') || 'None detected'}
+- Layout: ${Object.entries(websiteData.designPatterns.layout).filter(([k,v]) => v).map(([k]) => k).join(', ') || 'Standard layout'}
+- Typography: ${websiteData.designPatterns.typography.hasCustomFonts ? 'Custom fonts detected' : 'Standard typography'}
+- Animations: ${websiteData.designPatterns.animations.join(', ') || 'None detected'}
+
+**Website Content Preview**:
+${websiteData.content.substring(0, 2000)}${websiteData.content.length > 2000 ? '...[truncated]' : ''}
+
+**CRITICAL INSTRUCTION**: Use the above website as design reference. Extract and adapt its visual patterns, color schemes, layout structure, and component design while implementing in React/Tailwind. Create semantic design tokens based on the detected colors and patterns.
+`;
+                
+                await sendProgress({ 
+                  type: 'status', 
+                  message: `🌐 Analyzed reference website: ${websiteData.title || websiteData.url}`
+                });
+              } else if (websiteAnalysis.error) {
+                websiteContext = `\n## WEBSITE REFERENCE DETECTED\nUser mentioned: ${websiteAnalysis.allDetectedUrls.join(', ')}\nNote: Could not scrape website content, but user wants design inspiration from these sources.\n`;
+                
+                await sendProgress({ 
+                  type: 'status', 
+                  message: `⚠️ Detected website reference but couldn't scrape: ${websiteAnalysis.allDetectedUrls[0]}`
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[generate-ai-code-stream] Error analyzing website references:', error);
+        }
+        
         // Check if we have a file manifest for edit mode
         let editContext = null;
         let enhancedSystemPrompt = '';
@@ -170,7 +227,7 @@ export async function POST(request: NextRequest) {
           if (manifest) {
             await sendProgress({ type: 'status', message: '🔍 Creating search plan...' });
             
-            const fileContents = global.sandboxState.fileCache.files;
+            const fileContents = global.sandboxState.fileCache?.files || {};
             console.log('[generate-ai-code-stream] Files available for search:', Object.keys(fileContents).length);
             
             // STEP 1: Get search plan from AI
@@ -331,7 +388,7 @@ User request: "${prompt}"`;
                         
                         // For now, fall back to keyword search since we don't have file contents for search execution
                         // This path happens when no manifest was initially available
-                        let targetFiles = [];
+                        let targetFiles: string[] = [];
                         if (!searchPlan || searchPlan.searchTerms.length === 0) {
                           console.warn('[generate-ai-code-stream] No target files after fetch, searching for relevant files');
                           
@@ -550,25 +607,86 @@ Remember: You are a SURGEON making a precise incision, not an artist repainting 
           }
         }
         
-        // Build system prompt with conversation awareness
-        const systemPrompt = `You are an expert React developer with perfect memory of the conversation. You maintain context across messages and remember scraped websites, generated components, and applied code. Generate clean, modern React code for Vite applications.
+        // Build system prompt with conversation awareness - Lovable AI Editor
+        const systemPrompt = `# Lovable AI Editor System Prompt
+${websiteContext}
+
+## Role
+You are Lovable, an AI editor that creates and modifies web applications. You assist users by chatting with them and making changes to their code in real-time. You can access the console logs of the application in order to debug and use them to help you make changes.
+
+**Interface Layout**: On the left hand side of the interface, there's a chat window where users chat with you. On the right hand side, there's a live preview window (iframe) where users can see the changes being made to their application in real-time. When you make code changes, users will see the updates immediately in the preview window.
+
+**Technology Stack**: Lovable projects are built on top of React, Vite, Tailwind CSS, and TypeScript. Therefore it is not possible for Lovable to support other frameworks like Angular, Vue, Svelte, Next.js, native mobile apps, etc.
+
+**Backend Limitations**: Lovable also cannot run backend code directly. It cannot run Python, Node.js, Ruby, etc, but has a native integration with Supabase that allows it to create backend functionality like authentication, database management, and more.
+
+Not every interaction requires code changes - you're happy to discuss, explain concepts, or provide guidance without modifying the codebase. When code changes are needed, you make efficient and effective updates to React codebases while following best practices for maintainability and readability. You take pride in keeping things simple and elegant. You are friendly and helpful, always aiming to provide clear explanations whether you're making changes or just chatting.
+
+Current date: ${new Date().toISOString().split('T')[0]}
+
+## General Guidelines
+
+### Critical Instructions
+**YOUR MOST IMPORTANT RULE**: Do STRICTLY what the user asks - NOTHING MORE, NOTHING LESS. Never expand scope, add features, or modify code they didn't explicitly request.
+
+**PRIORITIZE PLANNING**: Assume users often want discussion and planning. Only proceed to implementation when they explicitly request code changes with clear action words like "implement," "code," "create," or "build," or when they're saying something you did is not working for example.
+
+**PERFECT ARCHITECTURE**: Always consider whether the code needs refactoring given the latest request. If it does, refactor the code to be more efficient and maintainable. Spaghetti code is your enemy.
+
+**WEBSITE REFERENCE INTELLIGENCE**: When users mention websites, designs, or ask for inspiration from existing sites:
+1. **Auto-detect website references** in user messages (URLs, "like X website", "similar to Y", etc.)
+2. **Automatically scrape referenced websites** using Firecrawl integration for accurate recreation
+3. **Extract design patterns** from scraped content (colors, layouts, components, typography)
+4. **Generate optimized code** based on actual website structure and styling
+5. **Preserve original design intent** while adapting to React/Tailwind implementation
+
+**PERFORMANCE OPTIMIZATIONS**: Generate code with maximum performance in mind:
+1. **Lazy Loading**: Use React.lazy() and Suspense for large components
+2. **Memoization**: Apply React.memo() and useMemo() for expensive computations
+3. **Efficient Imports**: Use tree-shaking friendly imports
+4. **Optimized Images**: Prefer modern formats and responsive loading
+5. **Minimal Bundle Size**: Avoid unnecessary dependencies and large libraries
+
+**BE VERY CONCISE**: You MUST answer concisely with fewer than 2 lines of text (not including tool use or code generation), unless user asks for detail. After editing code, do not write a long explanation, just keep it as short as possible.
+
 ${conversationContext}
 
-🚨 CRITICAL RULES - YOUR MOST IMPORTANT INSTRUCTIONS:
-1. **DO EXACTLY WHAT IS ASKED - NOTHING MORE, NOTHING LESS**
-   - Don't add features not requested
-   - Don't fix unrelated issues
-   - Don't improve things not mentioned
-2. **CHECK App.jsx FIRST** - ALWAYS see what components exist before creating new ones
-3. **NAVIGATION LIVES IN Header.jsx** - Don't create Nav.jsx if Header exists with nav
-4. **USE STANDARD TAILWIND CLASSES ONLY**:
-   - ✅ CORRECT: bg-white, text-black, bg-blue-500, bg-gray-100, text-gray-900
-   - ❌ WRONG: bg-background, text-foreground, bg-primary, bg-muted, text-secondary
-   - Use ONLY classes from the official Tailwind CSS documentation
-5. **FILE COUNT LIMITS**:
-   - Simple style/text change = 1 file ONLY
-   - New component = 2 files MAX (component + parent)
-   - If >3 files, YOU'RE DOING TOO MUCH
+## Design Guidelines
+
+**CRITICAL**: The design system is everything. You should never write custom styles in components, you should always use the design system and customize it and the UI components (including shadcn components) to make them look beautiful with the correct variants. You never use classes like text-white, bg-white, etc. You always use the design system tokens.
+
+- Maximize reusability of components.
+- Leverage the index.css and tailwind.config.ts files to create a consistent design system that can be reused across the app instead of custom styles everywhere.
+- Create variants in the components you'll use. Shadcn components are made to be customized!
+- You review and customize the shadcn components to make them look beautiful with the correct variants.
+- **CRITICAL**: USE SEMANTIC TOKENS FOR COLORS, GRADIENTS, FONTS, ETC. It's important you follow best practices. DO NOT use direct colors like text-white, text-black, bg-white, bg-black, etc. Everything must be themed via the design system defined in the index.css and tailwind.config.ts files!
+- Always consider the design system when making changes.
+- Pay attention to contrast, color, and typography.
+- Always generate responsive designs.
+- Beautiful designs are your top priority, so make sure to edit the index.css and tailwind.config.ts files as often as necessary to avoid boring designs and leverage colors and animations.
+
+## Required Workflow (Follow This Order)
+
+1. **DETECT WEBSITE REFERENCES**: Check if user mentions any websites, URLs, or design inspirations
+2. **AUTO-SCRAPE REFERENCES**: If website references detected, automatically scrape them using Firecrawl
+3. **EXTRACT DESIGN PATTERNS**: Analyze scraped content for colors, layouts, typography, components
+4. **THINK & PLAN**: 
+   - Restate what the user is ACTUALLY asking for
+   - Define EXACTLY what will change and what will remain untouched
+   - Plan the MINIMAL but CORRECT approach using scraped design insights
+5. **ASK CLARIFYING QUESTIONS**: If any aspect is unclear, ask before implementing
+6. **IMPLEMENTATION (ONLY IF EXPLICITLY REQUESTED)**:
+   - Make ONLY the changes explicitly requested
+   - Use design patterns from scraped websites when applicable
+   - Create small, focused components instead of large files
+   - Apply semantic design tokens from scraped color schemes
+
+🚨 CRITICAL DESIGN SYSTEM RULES:
+- **NEVER** use direct colors like text-white, bg-white, text-black, bg-black
+- **ALWAYS** define semantic tokens in index.css: --primary, --secondary, --accent, etc.
+- **ALWAYS** use HSL color format in CSS variables
+- **ALWAYS** create component variants using design system tokens
+- **ALWAYS** update tailwind.config.ts to use semantic tokens
 
 COMPONENT RELATIONSHIPS (CHECK THESE FIRST):
 - Navigation usually lives INSIDE Header.jsx, not separate Nav.jsx
@@ -726,10 +844,9 @@ CRITICAL STYLING RULES - MUST FOLLOW:
 - NEVER create App.css, Component.css, or any component-specific CSS files
 - NEVER import './App.css' or any CSS files except index.css
 - ALWAYS use Tailwind CSS classes for ALL styling
-- ONLY create src/index.css with the @tailwind directives
+- ONLY create src/index.css with the required Tailwind imports
 - The ONLY CSS file should be src/index.css with:
-  @tailwind base;
-  @tailwind components;
+  @import "tailwindcss/preflight";
   @tailwind utilities;
 - Use Tailwind's full utility set: spacing, colors, typography, flexbox, grid, animations, etc.
 - ALWAYS add smooth transitions and animations where appropriate:
@@ -829,8 +946,7 @@ When generating code, FOLLOW THIS PROCESS:
 Use this XML format for React components only (DO NOT create tailwind.config.js - it already exists):
 
 <file path="src/index.css">
-@tailwind base;
-@tailwind components;
+@import "tailwindcss/preflight";
 @tailwind utilities;
 </file>
 
@@ -955,14 +1071,14 @@ CRITICAL: When files are provided in the context:
                   // Store files in cache
                   for (const [path, content] of Object.entries(filesData.files)) {
                     const normalizedPath = path.replace('/home/user/app/', '');
-                    global.sandboxState.fileCache.files[normalizedPath] = {
+                    global.sandboxState.fileCache!.files[normalizedPath] = {
                       content: content as string,
                       lastModified: Date.now()
                     };
                   }
                   
                   if (filesData.manifest) {
-                    global.sandboxState.fileCache.manifest = filesData.manifest;
+                    global.sandboxState.fileCache!.manifest = filesData.manifest;
                     
                     // Now try to analyze edit intent with the fetched manifest
                     if (!editContext) {
@@ -993,7 +1109,7 @@ CRITICAL: When files are provided in the context:
                   }
                   
                   // Update variables
-                  backendFiles = global.sandboxState.fileCache.files;
+                  backendFiles = global.sandboxState.fileCache!.files;
                   hasBackendFiles = Object.keys(backendFiles).length > 0;
                   console.log('[generate-ai-code-stream] Updated backend cache with fetched files');
                 }
@@ -1595,7 +1711,7 @@ Provide the complete file content without any truncation. Include all necessary 
                 }
                 
                 const completionResult = await streamText({
-                  model: completionClient(modelMapping[model] || model),
+                  model: completionClient(model),
                   messages: [
                     { 
                       role: 'system', 
@@ -1603,8 +1719,7 @@ Provide the complete file content without any truncation. Include all necessary 
                     },
                     { role: 'user', content: completionPrompt }
                   ],
-                  temperature: isGPT5 ? undefined : appConfig.ai.defaultTemperature,
-                  maxTokens: appConfig.ai.truncationRecoveryMaxTokens
+                  temperature: 0.7
                 });
                 
                 // Get the full text from the stream
