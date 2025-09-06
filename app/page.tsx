@@ -1,28 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { appConfig } from '@/config/app.config';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-// Import icons from centralized module to avoid Turbopack chunk issues
-import { 
-  FiFile, 
-  FiChevronRight, 
-  FiChevronDown,
-  FiGithub,
-  BsFolderFill, 
-  BsFolder2Open,
-  SiJavascript, 
-  SiReact, 
-  SiCss3, 
-  SiJson 
-} from '@/lib/icons';
-import { motion, AnimatePresence } from 'framer-motion';
-import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
+import React, { Suspense } from 'react';
+import LovableInterface from '@/components/LovableInterface';
+import { SearchParamsProvider } from '@/components/SearchParamsProvider';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import MermaidDiagram from '@/components/MermaidDiagram';
+import CodeApplicationProgress from '@/components/CodeApplicationProgress';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { FolderFill, Folder2Open } from 'react-bootstrap-icons';
+import { ChevronDown, ChevronRight, File } from 'lucide-react';
+import { DiJavascript1, DiReact, DiCss3 } from 'react-icons/di';
+import { FileJson } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Button, Textarea } from '@/components/ui';
 
 interface SandboxData {
   sandboxId: string;
@@ -97,7 +87,7 @@ interface ChatMessage {
   };
 }
 
-export default function AISandboxPage() {
+function HomePage() {
   const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
@@ -113,7 +103,7 @@ export default function AISandboxPage() {
   ]);
   const [aiChatInput, setAiChatInput] = useState('');
   const [aiEnabled] = useState(true);
-  const searchParams = useSearchParams();
+  const { searchParams } = useSearchParamsContext();
   const router = useRouter();
   const [aiModel, setAiModel] = useState(() => {
     const modelParam = searchParams.get('model');
@@ -1033,7 +1023,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             <div className="w-[250px] border-r border-gray-200 bg-white flex flex-col flex-shrink-0">
             <div className="p-3 bg-gray-100 text-gray-900 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <BsFolderFill className="w-4 h-4" />
+                <FolderFill className="w-4 h-4" />
                 <span className="text-sm font-medium">Explorer</span>
               </div>
             </div>
@@ -1047,14 +1037,14 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                   onClick={() => toggleFolder('app')}
                 >
                   {expandedFolders.has('app') ? (
-                    <FiChevronDown className="w-4 h-4 text-gray-600" />
+                    <ChevronDown className="w-4 h-4 text-gray-600" />
                   ) : (
-                    <FiChevronRight className="w-4 h-4 text-gray-600" />
+                    <ChevronRight className="w-4 h-4 text-gray-600" />
                   )}
                   {expandedFolders.has('app') ? (
-                    <BsFolder2Open className="w-4 h-4 text-blue-500" />
+                    <Folder2Open className="w-4 h-4 text-blue-500" />
                   ) : (
-                    <BsFolderFill className="w-4 h-4 text-blue-500" />
+                    <FolderFill className="w-4 h-4 text-blue-500" />
                   )}
                   <span className="font-medium text-gray-800">app</span>
                 </div>
@@ -1093,14 +1083,14 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                               onClick={() => toggleFolder(dir)}
                             >
                               {expandedFolders.has(dir) ? (
-                                <FiChevronDown className="w-4 h-4 text-gray-600" />
+                                <ChevronDown className="w-4 h-4 text-gray-600" />
                               ) : (
-                                <FiChevronRight className="w-4 h-4 text-gray-600" />
+                                <ChevronRight className="w-4 h-4 text-gray-600" />
                               )}
                               {expandedFolders.has(dir) ? (
-                                <BsFolder2Open className="w-4 h-4 text-yellow-600" />
+                                <Folder2Open className="w-4 h-4 text-yellow-600" />
                               ) : (
-                                <BsFolderFill className="w-4 h-4 text-yellow-600" />
+                                <FolderFill className="w-4 h-4 text-yellow-600" />
                               )}
                               <span className="text-gray-700">{dir.split('/').pop()}</span>
                             </div>
@@ -2082,15 +2072,15 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     const ext = fileName.split('.').pop()?.toLowerCase();
     
     if (ext === 'jsx' || ext === 'js') {
-      return <SiJavascript className="w-4 h-4 text-yellow-500" />;
+      return <DiJavascript1 className="w-4 h-4 text-yellow-500" />;
     } else if (ext === 'tsx' || ext === 'ts') {
-      return <SiReact className="w-4 h-4 text-blue-500" />;
+      return <DiReact className="w-4 h-4 text-blue-500" />;
     } else if (ext === 'css') {
-      return <SiCss3 className="w-4 h-4 text-blue-500" />;
+      return <DiCss3 className="w-4 h-4 text-blue-500" />;
     } else if (ext === 'json') {
-      return <SiJson className="w-4 h-4 text-gray-600" />;
+      return <FileJson className="w-4 h-4 text-gray-600" />;
     } else {
-      return <FiFile className="w-4 h-4 text-gray-600" />;
+      return <File className="w-4 h-4 text-gray-600" />;
     }
   };
 
@@ -3739,5 +3729,33 @@ Focus on the key sections and content, making it clean and modern.`;
 
 
     </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading Lovable...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <ErrorBoundary 
+      showDetails={process.env.NODE_ENV === 'development'}
+      onError={(error, errorInfo) => {
+        console.error('Application Error:', error, errorInfo);
+      }}
+    >
+      <SearchParamsProvider>
+        <Suspense fallback={<LoadingSpinner />}>
+          <LovableInterface />
+        </Suspense>
+      </SearchParamsProvider>
+    </ErrorBoundary>
   );
 }

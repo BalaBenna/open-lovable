@@ -10,6 +10,9 @@ import { executeSearchPlan, formatSearchResultsForAI, selectTargetFile } from '@
 import { FileManifest } from '@/types/file-manifest';
 import type { ConversationState, ConversationMessage, ConversationEdit } from '@/types/conversation';
 import { appConfig } from '@/config/app.config';
+import { promptOptimizer } from '@/lib/prompt-optimizer';
+import { performanceMonitor } from '@/lib/performance-monitor';
+import { redisCache } from '@/lib/redis-cache';
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -73,15 +76,35 @@ declare global {
 }
 
 export async function POST(request: NextRequest) {
+  const requestTimer = performanceMonitor.createTimer('generate-ai-code-stream');
+  const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
   try {
-    const { prompt, model = 'openai/gpt-oss-20b', context, isEdit = false } = await request.json();
+    const { prompt, model = 'openai/gpt-5', context, isEdit = false } = await request.json();
     
-    console.log('[generate-ai-code-stream] Received request:');
-    console.log('[generate-ai-code-stream] - prompt:', prompt);
+    console.log('[generate-ai-code-stream] Received request:', requestId);
+    console.log('[generate-ai-code-stream] - prompt:', prompt.substring(0, 100) + '...');
+    console.log('[generate-ai-code-stream] - model:', model);
     console.log('[generate-ai-code-stream] - isEdit:', isEdit);
     console.log('[generate-ai-code-stream] - context.sandboxId:', context?.sandboxId);
     console.log('[generate-ai-code-stream] - context.currentFiles:', context?.currentFiles ? Object.keys(context.currentFiles) : 'none');
     console.log('[generate-ai-code-stream] - currentFiles count:', context?.currentFiles ? Object.keys(context.currentFiles).length : 0);
+
+    // Check for request deduplication
+    if (appConfig.ai.enableRequestDeduplication) {
+      const dedupeKey = `dedupe:${Buffer.from(prompt + model).toString('base64').slice(0, 50)}`;
+      const existingRequest = await redisCache.get(dedupeKey);
+      if (existingRequest) {
+        console.log('[generate-ai-code-stream] Duplicate request detected, returning cached response');
+        return new Response(existingRequest, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
+      }
+    }
     
     // Initialize conversation state if not exists
     if (!global.conversationState) {
@@ -607,8 +630,16 @@ Remember: You are a SURGEON making a precise incision, not an artist repainting 
           }
         }
         
-        // Build system prompt with conversation awareness - Lovable AI Editor
-        const systemPrompt = `# Lovable AI Editor System Prompt
+        // Get optimized system prompt
+        const optimizedSystemPrompt = await promptOptimizer.getOptimizedPrompt({
+          isEdit,
+          hasFiles: (context?.currentFiles && Object.keys(context.currentFiles).length > 0),
+          model,
+          userIntent: prompt
+        });
+        
+        // Build system prompt with conversation awareness
+        const systemPrompt = `${optimizedSystemPrompt}
 ${websiteContext}
 
 ## Role
@@ -1276,6 +1307,11 @@ CRITICAL: When files are provided in the context:
                            (model === 'openai/gpt-5') ? 'gpt-5' :
                            (isGoogle ? model.replace('google/', '') : model);
 
+        // Track generation start time
+        const generationStartTime = Date.now();
+        let promptTokens = 0;
+        let completionTokens = 0;
+        
         // Make streaming API call with appropriate provider
         const streamOptions: any = {
           model: modelProvider(actualModel),
@@ -1339,15 +1375,18 @@ If you're running out of space, generate FEWER files but make them COMPLETE.
 It's better to have 3 complete files than 10 incomplete files.`
             }
           ],
-          maxTokens: 8192, // Reduce to ensure completion
+          maxTokens: appConfig.ai.maxTokens, // Use configurable max tokens
           stopSequences: [] // Don't stop early
           // Note: Neither Groq nor Anthropic models support tool/function calling in this context
           // We use XML tags for package detection instead
         };
         
-        // Add temperature for non-reasoning models
-        if (!model.startsWith('openai/gpt-5')) {
-          streamOptions.temperature = 0.7;
+        // Estimate prompt tokens (rough approximation)
+        promptTokens = Math.ceil((systemPrompt.length + fullPrompt.length) / 4);
+        
+        // Add temperature for non-reasoning models only
+        if (!model.startsWith('openai/gpt-5') && !model.includes('reasoning')) {
+          streamOptions.temperature = appConfig.ai.defaultTemperature;
         }
         
         // Add reasoning effort for GPT-5 models
@@ -1768,6 +1807,22 @@ Provide the complete file content without any truncation. Include all necessary 
           }
         }
         
+        // Calculate completion tokens (rough approximation)
+        completionTokens = Math.ceil(generatedCode.length / 4);
+        const generationDuration = Date.now() - generationStartTime;
+        
+        // Track generation performance
+        await performanceMonitor.trackGeneration({
+          model,
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
+          duration: generationDuration,
+          cacheHit: false, // TODO: Implement cache hit detection
+          filesGenerated: files.length,
+          success: true
+        });
+        
         // Send completion with packages info
         await sendProgress({ 
           type: 'complete', 
@@ -1777,7 +1832,12 @@ Provide the complete file content without any truncation. Include all necessary 
           components: componentCount,
           model,
           packagesToInstall: packagesToInstall.length > 0 ? packagesToInstall : undefined,
-          warnings: truncationWarnings.length > 0 ? truncationWarnings : undefined
+          warnings: truncationWarnings.length > 0 ? truncationWarnings : undefined,
+          performance: {
+            duration: generationDuration,
+            tokens: promptTokens + completionTokens,
+            filesGenerated: files.length
+          }
         });
         
         // Track edit in conversation history
@@ -1808,8 +1868,29 @@ Provide the complete file content without any truncation. Include all necessary 
           console.log('[generate-ai-code-stream] Updated conversation history with edit:', editRecord);
         }
         
+        // Mark request as successful
+        requestTimer.end(true, { 
+          model, 
+          isEdit, 
+          filesGenerated: files.length,
+          duration: Date.now() - generationStartTime 
+        });
+        
       } catch (error) {
         console.error('[generate-ai-code-stream] Stream processing error:', error);
+        
+        // Track generation failure
+        await performanceMonitor.trackGeneration({
+          model,
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
+          duration: Date.now() - generationStartTime,
+          cacheHit: false,
+          filesGenerated: 0,
+          success: false,
+          errorType: (error as Error).name
+        });
         
         // Check if it's a tool validation error
         if ((error as any).message?.includes('tool call validation failed')) {
@@ -1825,6 +1906,13 @@ Provide the complete file content without any truncation. Include all necessary 
             error: (error as Error).message 
           });
         }
+        
+        // Mark request as failed
+        requestTimer.end(false, { 
+          error: (error as Error).message,
+          model,
+          isEdit 
+        });
       } finally {
         await writer.close();
       }

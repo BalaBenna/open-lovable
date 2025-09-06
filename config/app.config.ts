@@ -45,26 +45,42 @@ export const appConfig = {
     // Temperature settings for non-reasoning models
     defaultTemperature: 0.7,
     
-    // Max tokens for code generation
-    maxTokens: 8000,
+    // Max tokens for code generation (increased for better completion)
+    maxTokens: 12000,
     
     // Max tokens for truncation recovery
     truncationRecoveryMaxTokens: 4000,
+    
+    // Performance optimizations
+    enableSystemPromptCaching: true,
+    enableRequestDeduplication: true,
+    systemPromptCacheTTL: 3600, // 1 hour
+    requestDeduplicationTTL: 300, // 5 minutes
+    
+    // Streaming optimization
+    streamingChunkSize: 1024,
+    enableProgressiveRendering: true,
   },
   
   // Code Application Configuration
   codeApplication: {
     // Delay after applying code before refreshing iframe (milliseconds)
-    defaultRefreshDelay: 2000,
+    defaultRefreshDelay: 1500, // Reduced for faster feedback
     
     // Delay when packages are installed (milliseconds)
-    packageInstallRefreshDelay: 5000,
+    packageInstallRefreshDelay: 4000, // Reduced for faster package installation
     
     // Enable/disable automatic truncation recovery
-    enableTruncationRecovery: false, // Disabled - too many false positives
+    enableTruncationRecovery: true, // Re-enabled with better detection
     
     // Maximum number of truncation recovery attempts per file
-    maxTruncationRecoveryAttempts: 1,
+    maxTruncationRecoveryAttempts: 2,
+    
+    // Performance optimizations
+    enableIncrementalUpdates: true,
+    enableLazyComponentLoading: true,
+    previewUpdateBatchSize: 3, // Batch multiple file updates
+    previewUpdateDebounceMs: 500, // Debounce rapid updates
   },
   
   // UI Configuration

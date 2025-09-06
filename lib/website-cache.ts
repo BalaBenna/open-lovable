@@ -1,93 +1,35 @@
-// Simple in-memory cache for website scraping results
-interface CacheEntry {
-  data: any;
-  timestamp: number;
-  expiresAt: number;
-}
+import { redisCache, CacheKeys } from './redis-cache';
 
 class WebsiteCache {
-  private cache = new Map<string, CacheEntry>();
-  private readonly DEFAULT_TTL = 30 * 60 * 1000; // 30 minutes
+  private readonly DEFAULT_TTL = 30 * 60; // 30 minutes in seconds
 
-  set(url: string, data: any, ttl: number = this.DEFAULT_TTL): void {
-    const now = Date.now();
-    this.cache.set(url, {
-      data,
-      timestamp: now,
-      expiresAt: now + ttl
-    });
-    
-    // Clean up expired entries periodically
-    this.cleanup();
+  async set(url: string, data: any, ttl: number = this.DEFAULT_TTL): Promise<void> {
+    const cacheKey = CacheKeys.website(url);
+    await redisCache.set(cacheKey, data, ttl);
   }
 
-  get(url: string): any | null {
-    const entry = this.cache.get(url);
-    
-    if (!entry) {
-      return null;
-    }
-    
-    // Check if entry has expired
-    if (Date.now() > entry.expiresAt) {
-      this.cache.delete(url);
-      return null;
-    }
-    
-    return entry.data;
+  async get(url: string): Promise<any | null> {
+    const cacheKey = CacheKeys.website(url);
+    return await redisCache.get(cacheKey);
   }
 
-  has(url: string): boolean {
-    const entry = this.cache.get(url);
-    
-    if (!entry) {
-      return false;
-    }
-    
-    // Check if entry has expired
-    if (Date.now() > entry.expiresAt) {
-      this.cache.delete(url);
-      return false;
-    }
-    
-    return true;
+  async has(url: string): Promise<boolean> {
+    const cacheKey = CacheKeys.website(url);
+    return await redisCache.has(cacheKey);
   }
 
-  delete(url: string): boolean {
-    return this.cache.delete(url);
+  async delete(url: string): Promise<boolean> {
+    const cacheKey = CacheKeys.website(url);
+    return await redisCache.delete(cacheKey);
   }
 
-  clear(): void {
-    this.cache.clear();
-  }
-
-  private cleanup(): void {
-    const now = Date.now();
-    
-    for (const [url, entry] of this.cache.entries()) {
-      if (now > entry.expiresAt) {
-        this.cache.delete(url);
-      }
-    }
+  async clear(): Promise<void> {
+    await redisCache.clear();
   }
 
   // Get cache statistics
-  getStats(): { size: number; entries: Array<{ url: string; age: number; ttl: number }> } {
-    const now = Date.now();
-    const entries = [];
-    
-    for (const [url, entry] of this.cache.entries()) {
-      entries.push({
-        url,
-        age: Math.round((now - entry.timestamp) / 1000), // age in seconds
-        ttl: Math.round((entry.expiresAt - now) / 1000) // remaining TTL in seconds
-      });
-    }
-    
-    return {
-      size: this.cache.size,
-      entries
-    };
+  async getStats(): Promise<any> {
+    return await redisCache.getStats();
   }
 }
 
