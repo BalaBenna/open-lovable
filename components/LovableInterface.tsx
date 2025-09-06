@@ -40,6 +40,7 @@ import ErrorRecoverySystem from './ErrorRecoverySystem';
 import VersionControlPanel from './VersionControlPanel';
 import MultiSiteAnalyzer from './MultiSiteAnalyzer';
 import SandboxPreview from './SandboxPreview';
+import { Upload, Mic, MicOff, X, Image as ImageIcon, Camera } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -96,8 +97,14 @@ const LovableInterface: React.FC = () => {
   const [currentProject, setCurrentProject] = useState('my-lovable-app');
   const [currentError, setCurrentError] = useState<any>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<any[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -111,6 +118,35 @@ const LovableInterface: React.FC = () => {
       inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
     }
   }, [inputValue]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInputValue(prev => prev + (prev ? ' ' : '') + transcript);
+        setIsRecording(false);
+        setShowVoiceModal(false);
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        setShowVoiceModal(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+        setShowVoiceModal(false);
+      };
+    }
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isGenerating) return;
@@ -359,6 +395,52 @@ The code is being generated now and will appear in the editor. You'll see each f
     }
   };
 
+  const handleFileUpload = (files: FileList) => {
+    const newImages = Array.from(files).filter(file => file.type.startsWith('image/'));
+    if (newImages.length > 0) {
+      const imageUrls = newImages.map(file => ({
+        id: `img-${Date.now()}-${Math.random()}`,
+        file,
+        url: URL.createObjectURL(file),
+        name: file.name
+      }));
+      setUploadedImages(prev => [...prev, ...imageUrls]);
+      setShowUploadModal(false);
+      // You can add image analysis logic here if needed
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleVoiceClick = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in your browser.');
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+      setShowVoiceModal(false);
+    } else {
+      setIsRecording(true);
+      setShowVoiceModal(true);
+      recognitionRef.current.start();
+    }
+  };
+
+  const removeUploadedImage = (imageId: string) => {
+    setUploadedImages(prev => {
+      const imageToRemove = prev.find(img => img.id === imageId);
+      if (imageToRemove) {
+        URL.revokeObjectURL(imageToRemove.url);
+      }
+      return prev.filter(img => img.id !== imageId);
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -600,11 +682,41 @@ The code is being generated now and will appear in the editor. You'll see each f
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Describe what you want to build, upload design references, or use voice input..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none min-h-[48px] max-h-32"
+                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none min-h-[48px] max-h-32"
                   rows={1}
                   disabled={isGenerating}
                 />
+
+                {/* Upload and Voice Icons */}
+                <div className="absolute right-3 bottom-3 flex items-center gap-2">
+                  <button
+                    onClick={handleUploadClick}
+                    className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors group"
+                    title="Upload image"
+                    disabled={isGenerating}
+                  >
+                    <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  </button>
+
+                  <button
+                    onClick={handleVoiceClick}
+                    className={`p-2 rounded-lg transition-colors group ${
+                      isRecording
+                        ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                        : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'
+                    }`}
+                    title={isRecording ? "Stop recording" : "Voice input"}
+                    disabled={isGenerating}
+                  >
+                    {isRecording ? (
+                      <MicOff className="w-4 h-4 animate-pulse" />
+                    ) : (
+                      <Mic className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    )}
+                  </button>
+                </div>
               </div>
+
               <button
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isGenerating}
@@ -620,34 +732,120 @@ The code is being generated now and will appear in the editor. You'll see each f
           </div>
         </div>
 
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+          className="hidden"
+        />
+
+        {/* Uploaded Images Preview */}
+        {uploadedImages.length > 0 && (
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ImageIcon className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-600">Attached Images ({uploadedImages.length})</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {uploadedImages.map((image) => (
+                <div key={image.id} className="relative flex-shrink-0">
+                  <img
+                    src={image.url}
+                    alt={image.name}
+                    className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                  />
+                  <button
+                    onClick={() => removeUploadedImage(image.id)}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors text-xs"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Voice Recording Modal */}
+        {showVoiceModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 max-w-sm w-full text-center">
+              <div className="flex justify-center mb-4">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                  isRecording ? 'bg-red-100' : 'bg-purple-100'
+                }`}>
+                  {isRecording ? (
+                    <Mic className="w-8 h-8 text-red-600 animate-pulse" />
+                  ) : (
+                    <MicOff className="w-8 h-8 text-purple-600" />
+                  )}
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {isRecording ? 'Listening...' : 'Voice Input'}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {isRecording
+                  ? 'Speak your request clearly. Click stop when finished.'
+                  : 'Click the microphone to start recording your voice input.'
+                }
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    setShowVoiceModal(false);
+                    setIsRecording(false);
+                    recognitionRef.current?.stop();
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                {isRecording && (
+                  <button
+                    onClick={handleVoiceClick}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Stop Recording
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
         {/* Code Editor Panel and Preview */}
         <div className="flex-1 flex min-w-0">
           {/* Code Editor - Takes full width when preview is hidden, half when shown */}
           <div className={"flex flex-col min-w-0 " + (showPreview ? "w-1/2" : "flex-1")}>
-          {/* Error Recovery */}
-          {currentError && (
-            <div className="p-4 border-b border-gray-200">
-              <ErrorRecoverySystem
-                error={currentError}
-                onRetry={handleErrorRetry}
-                onDismiss={() => setCurrentError(null)}
-                isRetrying={isRetrying}
-              />
-            </div>
-          )}
+            {/* Error Recovery */}
+            {currentError && (
+              <div className="p-4 border-b border-gray-200">
+                <ErrorRecoverySystem
+                  error={currentError}
+                  onRetry={handleErrorRetry}
+                  onDismiss={() => setCurrentError(null)}
+                  isRetrying={isRetrying}
+                />
+              </div>
+            )}
 
-          {/* Version Control Panel */}
-          {showVersionControl && generatedFiles.length > 0 && (
-            <div className="h-80 border-b border-gray-200">
-              <VersionControlPanel
-                currentFiles={generatedFiles.map(f => ({ path: f.path, content: f.content }))}
-                onRevert={handleVersionControlAction.onRevert}
-                onCreateBranch={handleVersionControlAction.onCreateBranch}
-                onSwitchBranch={handleVersionControlAction.onSwitchBranch}
-                onCommit={handleVersionControlAction.onCommit}
-              />
-            </div>
-          )}
+            {/* Version Control Panel */}
+            {showVersionControl && generatedFiles.length > 0 && (
+              <div className="h-80 border-b border-gray-200">
+                <VersionControlPanel
+                  currentFiles={generatedFiles.map(f => ({ path: f.path, content: f.content }))}
+                  onRevert={handleVersionControlAction.onRevert}
+                  onCreateBranch={handleVersionControlAction.onCreateBranch}
+                  onSwitchBranch={handleVersionControlAction.onSwitchBranch}
+                  onCommit={handleVersionControlAction.onCommit}
+                />
+              </div>
+            )}
 
             <div className="flex-1">
               <RealtimeCodeEditor
@@ -658,19 +856,20 @@ The code is being generated now and will appear in the editor. You'll see each f
             </div>
           </div>
 
-        {/* Preview Panel - Shows when preview is enabled */}
-        {showPreview && (
-          <div className="w-1/2 flex flex-col min-w-0 border-l border-gray-200">
-            <div className="flex-1">
-              <SandboxPreview
-                sandboxId={sandboxId}
-                port={previewPort}
-                type={previewType}
-                isLoading={isPreviewLoading}
-              />
+          {/* Preview Panel - Shows when preview is enabled */}
+          {showPreview && (
+            <div className="w-1/2 flex flex-col min-w-0 border-l border-gray-200">
+              <div className="flex-1">
+                <SandboxPreview
+                  sandboxId={sandboxId}
+                  port={previewPort}
+                  type={previewType}
+                  isLoading={isPreviewLoading}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Status Bar */}
