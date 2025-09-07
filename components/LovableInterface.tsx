@@ -591,14 +591,7 @@ const LovableInterface: React.FC = () => {
     return `msg-${microTime}-${counter}-${randomSuffix}`;
   };
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome-message',
-      role: 'system',
-      content: 'Welcome to Lovable! I\'m your AI development partner. Describe what you\'d like to build, and I\'ll create it for you in real-time.',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([]);
@@ -1534,9 +1527,9 @@ export default Footer;`,
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden h-full">
         {/* Chat Panel - Fixed 30% width */}
-        <div className="w-[30%] flex flex-col bg-white border-r border-gray-200 flex-shrink-0 max-h-screen">
+        <div className="w-[30%] flex flex-col bg-white border-r border-gray-200 flex-shrink-0 h-full">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <AnimatePresence mode="wait">
@@ -1587,13 +1580,13 @@ export default Footer;`,
         </div>
 
 
-        {/* Code Editor Panel and Preview */}
-        <div className="flex-1 flex min-w-0">
+        {/* Code Editor Panel and Preview - Fixed height to match chat panel */}
+        <div className="flex-1 flex min-w-0 h-full">
           {/* Code Editor - Takes full width in code mode, hidden in preview mode */}
-          <div className={"flex flex-col min-w-0 " + (viewMode === 'code' ? "flex-1" : "hidden")}>
+          <div className={"flex flex-col min-w-0 h-full " + (viewMode === 'code' ? "flex-1" : "hidden")}>
             {/* Error Recovery */}
             {currentError && (
-              <div className="p-4 border-b border-gray-200">
+              <div className="p-4 border-b border-gray-200 flex-shrink-0">
                 <ErrorRecoverySystem
                   error={currentError}
                   onRetry={handleErrorRetry}
@@ -1696,16 +1689,19 @@ export default Footer;`,
             )}
             </AnimatePresence>
 
-            <div className="flex-1 flex flex-col">
-              <RealtimeCodeEditor
-                isGenerating={isGenerating}
-                generatedFiles={generatedFiles}
-                className="flex-1"
-              />
+            {/* Code Editor Container with fixed height and internal scrolling */}
+            <div className="flex-1 flex flex-col min-h-0 bg-gray-900 rounded-lg m-4 pb-4">
+              <div className="flex-1 overflow-hidden">
+                <RealtimeCodeEditor
+                  isGenerating={isGenerating}
+                  generatedFiles={generatedFiles}
+                  className="h-full overflow-auto"
+                />
+              </div>
               
               {/* Auto Error Correction */}
               {generatedFiles.length > 0 && (
-                <div className="border-t border-gray-200 p-4">
+                <div className="border-t border-gray-700 p-4 flex-shrink-0">
                   <AutoErrorCorrection
                     generatedCode={generatedFiles.find(f => f.path.endsWith('.tsx') || f.path.endsWith('.jsx'))?.content || ''}
                     onCodeCorrected={handleCodeCorrected}
@@ -1716,17 +1712,17 @@ export default Footer;`,
             </div>
           </div>
 
-          {/* Preview Panel - Shows in preview mode and takes full width */}
+          {/* Preview Panel - Shows in preview mode and takes full width with same styling */}
           {viewMode === 'preview' && (
-            <div className="flex-1 flex flex-col min-w-0">
-              <div className="flex-1">
-              <SandboxPreview
-                sandboxId={sandboxId}
-                port={previewPort}
-                type={previewType}
-                isLoading={isPreviewLoading}
-                previewUrl={previewUrl}
-              />
+            <div className="flex-1 flex flex-col min-w-0 h-full">
+              <div className="flex-1 bg-gray-900 rounded-lg m-4 pb-4 overflow-hidden">
+                <SandboxPreview
+                  sandboxId={sandboxId}
+                  port={previewPort}
+                  type={previewType}
+                  isLoading={isPreviewLoading}
+                  previewUrl={previewUrl}
+                />
               </div>
             </div>
           )}
