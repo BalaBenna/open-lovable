@@ -283,8 +283,8 @@ const DeploymentOptions: React.FC<DeploymentOptionsProps> = ({
                               {provider.difficulty}
                             </span>
                           </div>
-                          {provider.customDomain && <Lock className="w-3 h-3 text-green-500" title="Custom Domain" />}
-                          {provider.ssl && <CheckCircle className="w-3 h-3 text-green-500" title="SSL Included" />}
+                          {provider.customDomain && <Lock className="w-3 h-3 text-green-500" />}
+                          {provider.ssl && <CheckCircle className="w-3 h-3 text-green-500" />}
                         </div>
                       </div>
                     </div>

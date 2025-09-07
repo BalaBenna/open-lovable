@@ -57,6 +57,9 @@ interface VersionControlPanelProps {
   onSwitchBranch: (branchName: string) => void;
   onCommit: (message: string, files: string[]) => void;
   className?: string;
+  isModal?: boolean;
+  activeTab?: 'history' | 'branches' | 'changes';
+  setActiveTab?: (tab: 'history' | 'branches' | 'changes') => void;
 }
 
 const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
@@ -65,9 +68,16 @@ const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
   onCreateBranch,
   onSwitchBranch,
   onCommit,
-  className = ''
+  className = '',
+  isModal = false,
+  activeTab: externalActiveTab,
+  setActiveTab: externalSetActiveTab
 }) => {
-  const [activeTab, setActiveTab] = useState<'history' | 'branches' | 'changes'>('history');
+  const [internalActiveTab, setInternalActiveTab] = useState<'history' | 'branches' | 'changes'>('history');
+
+  // Use external tab state if provided (modal mode), otherwise use internal state
+  const activeTab = externalActiveTab || internalActiveTab;
+  const setActiveTab = externalSetActiveTab || setInternalActiveTab;
   const [commits, setCommits] = useState<GitCommit[]>([]);
   const [branches, setBranches] = useState<GitBranchInfo[]>([]);
   const [selectedCommit, setSelectedCommit] = useState<string>('');
@@ -274,62 +284,64 @@ const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
   );
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg shadow-sm ${className}`}>
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <GitBranch className="w-5 h-5 text-white" />
+    <div className={`bg-white ${!isModal ? 'border border-gray-200 rounded-lg shadow-sm' : ''} ${className}`}>
+      {/* Header - Only show when not in modal */}
+      {!isModal && (
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <GitBranch className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Version Control</h3>
+                <p className="text-sm text-gray-600">Track and manage your code changes</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Version Control</h3>
-              <p className="text-sm text-gray-600">Track and manage your code changes</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCommitDialog(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+              >
+                <Save className="w-4 h-4" />
+                Commit
+              </button>
+              <button
+                onClick={() => setShowBranchDialog(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                <GitBranch className="w-4 h-4" />
+                Branch
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowCommitDialog(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-            >
-              <Save className="w-4 h-4" />
-              Commit
-            </button>
-            <button
-              onClick={() => setShowBranchDialog(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-            >
-              <GitBranch className="w-4 h-4" />
-              Branch
-            </button>
-          </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
-          {[
-            { id: 'history', label: 'History', icon: History },
-            { id: 'branches', label: 'Branches', icon: GitBranch },
-            { id: 'changes', label: 'Changes', icon: FileText }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
+          {/* Tabs */}
+          <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+            {[
+              { id: 'history', label: 'History', icon: History },
+              { id: 'branches', label: 'Branches', icon: GitBranch },
+              { id: 'changes', label: 'Changes', icon: FileText }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
-      <div className="p-4">
+      <div className={`${!isModal ? 'p-4' : 'p-0'}`}>
         {activeTab === 'history' && (
           <div className="space-y-4">
             {/* Search */}

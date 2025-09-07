@@ -1,18 +1,27 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import LovableInterface from '@/components/LovableInterface';
-import { SearchParamsProvider } from '@/components/SearchParamsProvider';
+import { SearchParamsProvider, useSearchParamsContext } from '@/components/SearchParamsProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import MermaidDiagram from '@/components/MermaidDiagram';
 import CodeApplicationProgress from '@/components/CodeApplicationProgress';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { FolderFill, Folder2Open } from 'react-bootstrap-icons';
 import { ChevronDown, ChevronRight, File } from 'lucide-react';
 import { DiJavascript1, DiReact, DiCss3 } from 'react-icons/di';
 import { FileJson } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button, Textarea } from '@/components/ui';
+import { appConfig } from '@/config/app.config';
+
+interface CodeApplicationState {
+  stage: string | null;
+  packages?: string[];
+  filesGenerated?: number;
+}
 
 interface SandboxData {
   sandboxId: string;
@@ -3366,8 +3375,8 @@ Focus on the key sections and content, making it clean and modern.`;
               </option>
             ))}
           </select>
-          <Button 
-            variant="code"
+          <Button
+            variant="outline"
             onClick={() => createSandbox()}
             size="sm"
             title="Create new sandbox"
@@ -3376,8 +3385,8 @@ Focus on the key sections and content, making it clean and modern.`;
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </Button>
-          <Button 
-            variant="code"
+          <Button
+            variant="outline"
             onClick={reapplyLastGeneration}
             size="sm"
             title="Re-apply last generation"
@@ -3387,8 +3396,8 @@ Focus on the key sections and content, making it clean and modern.`;
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </Button>
-          <Button 
-            variant="code"
+          <Button
+            variant="outline"
             onClick={downloadZip}
             disabled={!sandboxData}
             size="sm"
@@ -3563,7 +3572,11 @@ Focus on the key sections and content, making it clean and modern.`;
             
             {/* Code application progress */}
             {codeApplicationState.stage && (
-              <CodeApplicationProgress state={codeApplicationState} />
+              <CodeApplicationProgress
+                steps={[]}
+                isVisible={true}
+                className="mb-4"
+              />
             )}
             
             {/* File generation progress - inline display (during generation) */}
@@ -3700,7 +3713,7 @@ Focus on the key sections and content, making it clean and modern.`;
               {sandboxData && !generationProgress.isGenerating && (
                 <>
                   <Button
-                    variant="code"
+                    variant="outline"
                     size="sm"
                     asChild
                   >

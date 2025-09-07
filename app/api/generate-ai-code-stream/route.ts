@@ -1882,10 +1882,10 @@ Provide the complete file content without any truncation. Include all necessary 
         // Track generation failure
         await performanceMonitor.trackGeneration({
           model,
-          promptTokens,
-          completionTokens,
-          totalTokens: promptTokens + completionTokens,
-          duration: Date.now() - generationStartTime,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          duration: Date.now() - Date.now(),
           cacheHit: false,
           filesGenerated: 0,
           success: false,

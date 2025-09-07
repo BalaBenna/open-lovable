@@ -1,46 +1,167 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Send, 
-  Sparkles, 
-  Code2, 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  Settings, 
-  Zap,
-  Globe,
-  Palette,
-  Layers,
-  MessageSquare,
+import {
+  Send,
+  Sparkles,
+  Code2,
   Eye,
-  Download,
   BookTemplate,
   Rocket,
-  Brain,
-  FileText,
-  Plus,
-  Mic,
-  Image as ImageIcon,
   BookOpen,
   GitBranch,
   Search,
-  RefreshCw
+  Settings,
+  X,
+  Save,
+  History,
+  FileText,
+  Plus,
+  MoreVertical,
+  Mic
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import RealtimeCodeEditor from './RealtimeCodeEditor';
 import EnhancedChatMessage from './EnhancedChatMessage';
-import AIThinkingDisplay, { getDefaultThinkingSteps } from './AIThinkingDisplay';
 import ProjectTemplates from './ProjectTemplates';
 import DeploymentOptions from './DeploymentOptions';
-import MultiModalInput from './MultiModalInput';
 import CodeExplanationPanel from './CodeExplanationPanel';
 import ErrorRecoverySystem from './ErrorRecoverySystem';
 import VersionControlPanel from './VersionControlPanel';
 import MultiSiteAnalyzer from './MultiSiteAnalyzer';
+
+// Custom Chat Input Component
+interface CustomChatInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  isGenerating?: boolean;
+}
+
+const CustomChatInput: React.FC<CustomChatInputProps> = ({
+  value,
+  onChange,
+  onSubmit,
+  placeholder = "Ask Lovable to create an intern",
+  disabled = false,
+  isGenerating = false
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isPublic, setIsPublic] = useState(false);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [value]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (value.trim() && !isGenerating) {
+        onSubmit(e as any);
+      }
+    }
+  };
+
+  const handleFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      // Handle file upload logic here
+      console.log('Files selected:', files);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="group flex flex-col gap-2 p-3 w-full rounded-3xl border border-gray-300 bg-gray-100 text-base shadow-xl transition-all duration-150 ease-in-out focus-within:border-gray-400 hover:border-gray-400 focus-within:hover:border-gray-400"
+    >
+      <div className="relative flex flex-1 items-center">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="flex w-full rounded-md px-2 py-2 ring-offset-background placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none text-[16px] leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base focus-visible:ring-0 focus-visible:ring-offset-0 max-h-[200px] bg-transparent focus:bg-transparent flex-1"
+          id="chatinput"
+          autoFocus
+          style={{ minHeight: '80px', height: '80px' }}
+          placeholder={placeholder}
+          maxLength={50000}
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="flex gap-1 flex-wrap items-center">
+        {/* Plus button for attachments */}
+        <button
+          type="button"
+          onClick={handleFileUpload}
+          className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors duration-100 ease-in-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-100 shadow-sm hover:bg-gray-200 hover:border-gray-400 gap-1.5 h-8 w-8 rounded-full p-0 text-gray-500 hover:text-gray-700"
+        >
+          <Plus className="shrink-0 h-5 w-5 text-gray-500" />
+        </button>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          id="file-upload"
+          className="hidden"
+          accept="image/jpeg,.jpg,.jpeg,image/png,.png,image/webp,.webp"
+          multiple
+          type="file"
+          onChange={handleFileChange}
+        />
+
+        {/* Public/Private toggle button */}
+        <button
+          type="button"
+          onClick={() => setIsPublic(!isPublic)}
+          className="whitespace-nowrap text-sm font-medium transition-colors duration-100 ease-in-out focus-visible:outline-none focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-100 shadow-sm hover:bg-gray-200 hover:border-gray-400 px-3 py-2 flex h-8 items-center justify-center gap-1 rounded-full text-gray-500 hover:text-gray-700"
+        >
+          <div className="flex items-center gap-1 duration-200">
+            <Mic className="shrink-0 h-4 w-4" />
+            <span className="hidden md:flex">{isPublic ? 'Public' : 'Private'}</span>
+          </div>
+        </button>
+
+        {/* Menu button */}
+        <div className="ml-auto flex items-center gap-1">
+          <div className="relative flex items-center gap-1 md:gap-2">
+            <div></div>
+            <button
+              type="button"
+              className="gap-2 whitespace-nowrap text-sm font-medium ease-in-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none border border-gray-300 bg-gray-100 shadow-sm hover:bg-gray-200 hover:border-gray-400 relative z-10 flex rounded-full p-0 text-gray-500 transition-opacity duration-150 disabled:cursor-not-allowed disabled:opacity-50 items-center justify-center h-8 w-8"
+            >
+              <MoreVertical className="shrink-0 relative z-10 h-5 w-5" />
+            </button>
+
+            {/* Send button */}
+            <button
+              id="chatinput-send-message-button"
+              type="submit"
+              disabled={!value.trim() || isGenerating}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-900 transition-opacity duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Send className="shrink-0 h-6 w-6 text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  );
+};
 import SandboxPreview from './SandboxPreview';
-import { Upload, Mic, MicOff, X, Image as ImageIcon, Camera } from 'lucide-react';
+import AutoErrorCorrection from './AutoErrorCorrection';
 
 interface Message {
   id: string;
@@ -84,9 +205,8 @@ const LovableInterface: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState('openai/gpt-5');
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [sandboxId, setSandboxId] = useState<string>('');
-  const [previewPort, setPreviewPort] = useState<number>(3000);
-  const [previewType, setPreviewType] = useState<'vite' | 'nextjs' | 'console'>('nextjs');
-  const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [previewPort, setPreviewPort] = useState<number>(5173); // Default to Vite port
+  const [previewType, setPreviewType] = useState<'vite' | 'nextjs' | 'console'>('vite');
   const [isPreviewLoading, setIsPreviewLoading] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -94,59 +214,18 @@ const LovableInterface: React.FC = () => {
   const [showCodeExplanation, setShowCodeExplanation] = useState(false);
   const [showVersionControl, setShowVersionControl] = useState(false);
   const [showSiteAnalyzer, setShowSiteAnalyzer] = useState(false);
+  const [activeTab, setActiveTab] = useState<'history' | 'branches' | 'changes'>('history');
   const [currentProject, setCurrentProject] = useState('my-lovable-app');
   const [currentError, setCurrentError] = useState<any>(null);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [uploadedImages, setUploadedImages] = useState<any[]>([]);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'code' | 'preview'>('code'); // Toggle between code and preview
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
-      inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
-    }
-  }, [inputValue]);
-
-  // Initialize speech recognition
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
-
-      recognitionRef.current.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setInputValue(prev => prev + (prev ? ' ' : '') + transcript);
-        setIsRecording(false);
-        setShowVoiceModal(false);
-      };
-
-      recognitionRef.current.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        setIsRecording(false);
-        setShowVoiceModal(false);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsRecording(false);
-        setShowVoiceModal(false);
-      };
-    }
-  }, []);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isGenerating) return;
@@ -187,12 +266,138 @@ const LovableInterface: React.FC = () => {
     }
   };
 
+  const generateMockAIResponse = (files: GeneratedFile[]) => {
+    let response = `Here are the generated files for your React application:\n\n`;
+
+    files.forEach(file => {
+      response += `<file path="${file.path}">\n${file.content}\n</file>\n\n`;
+    });
+
+    return response;
+  };
+
+  const generateFallbackPreview = (files: GeneratedFile[]) => {
+    const indexCss = files.find(f => f.path === 'src/index.css');
+
+    // Create a simple HTML preview
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lovable Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ${indexCss?.content || ''}
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-900 text-white">
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-4">🚀 Lovable Preview</h1>
+            <p class="text-xl text-gray-300">Your generated React application preview</p>
+        </div>
+
+        <!-- Generated App Content -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-8">
+            <h2 class="text-2xl font-bold mb-4">Generated Files:</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${files.map(file => `
+                    <div class="bg-gray-700 rounded p-4">
+                        <h3 class="text-lg font-semibold mb-2">${file.path}</h3>
+                        <div class="text-sm text-gray-300 max-h-32 overflow-hidden">
+                            <pre class="whitespace-pre-wrap text-xs">${file.content.substring(0, 200)}${file.content.length > 200 ? '...' : ''}</pre>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <!-- Fallback Content -->
+        <div class="bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 rounded-lg p-8 text-center">
+            <h2 class="text-3xl font-bold mb-4">✨ Your App is Ready!</h2>
+            <p class="text-xl text-gray-300 mb-6">
+                This is a fallback preview of your generated React application.
+                The sandbox environment may take a moment to load.
+            </p>
+            <div class="flex justify-center space-x-4">
+                <div class="bg-yellow-500 text-black px-6 py-3 rounded-lg font-semibold">
+                    🎯 Generated Successfully
+                </div>
+                <div class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold">
+                    🔄 Sandbox Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    return html;
+  };
+
+  const generateAIInsights = (prompt: string, operation: string) => {
+    const promptLower = prompt.toLowerCase();
+
+    // Analyze the prompt for specific patterns and provide relevant insights
+    if (promptLower.includes('landing page') || promptLower.includes('homepage')) {
+      return `🌟 **Landing Page Strategy Insights**\nBased on your request, I'm creating a high-converting landing page with:\n• Hero section with compelling value proposition\n• Social proof elements (testimonials, stats)\n• Clear call-to-action buttons\n• Mobile-responsive design that works on all devices\n• Fast loading performance for better SEO`;
+    }
+
+    if (promptLower.includes('dashboard') || promptLower.includes('admin')) {
+      return `📊 **Dashboard Design Insights**\nI'm building a comprehensive dashboard with:\n• Intuitive navigation and user experience\n• Data visualization components (charts, graphs)\n• Real-time updates and live data feeds\n• Responsive grid layout that adapts to screen sizes\n• Clean information hierarchy for better usability`;
+    }
+
+    if (promptLower.includes('ecommerce') || promptLower.includes('shop') || promptLower.includes('store')) {
+      return `🛒 **E-commerce Excellence Insights**\nYour online store will feature:\n• Product catalog with advanced filtering\n• Shopping cart with persistent state\n• Secure checkout flow with multiple payment options\n• Customer reviews and ratings system\n• Inventory management and order tracking`;
+    }
+
+    if (promptLower.includes('blog') || promptLower.includes('news') || promptLower.includes('article')) {
+      return `📝 **Content Platform Insights**\nI'm creating a content-rich platform with:\n• Clean article layout with optimal readability\n• Category-based content organization\n• Search functionality with filters\n• Social sharing capabilities\n• SEO-optimized structure for better discoverability`;
+    }
+
+    if (promptLower.includes('portfolio') || promptLower.includes('showcase')) {
+      return `🎨 **Portfolio Showcase Insights**\nYour portfolio will showcase:\n• Professional project galleries\n• Skill highlights and expertise areas\n• Contact integration and lead capture\n• Visual storytelling through design\n• Performance optimized for creative work presentation`;
+    }
+
+    if (operation === 'edit') {
+      return `🔧 **Code Enhancement Insights**\nI'm improving your existing code by:\n• Refactoring for better maintainability\n• Adding error handling and validation\n• Optimizing performance and loading times\n• Enhancing user experience and accessibility\n• Following modern React and TypeScript best practices`;
+    }
+
+    // Generic insights for other types of applications
+    return `🚀 **Application Development Insights**\nI'm building your application with:\n• Modern React architecture and patterns\n• TypeScript for enhanced developer experience\n• Responsive design that works everywhere\n• Performance optimizations for fast loading\n• Clean, maintainable code structure that scales`;
+  };
+
   const simulateCodeGeneration = async (prompt: string) => {
     const startTime = Date.now();
     
     // Determine operation type
     const operation = prompt.toLowerCase().includes('edit') || prompt.toLowerCase().includes('change') || prompt.toLowerCase().includes('update') 
       ? 'edit' : prompt.toLowerCase().includes('analyze') ? 'analyze' : 'generate';
+
+    // First, ensure we have a sandbox created
+    try {
+      console.log('Ensuring sandbox exists...');
+      const sandboxResponse = await fetch('/api/create-ai-sandbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (sandboxResponse.ok) {
+        const sandboxData = await sandboxResponse.json();
+        console.log('Sandbox created successfully:', sandboxData);
+        setSandboxId(sandboxData.sandboxId);
+        setPreviewUrl(sandboxData.url);
+      } else {
+        console.error('Failed to create sandbox');
+      }
+    } catch (error) {
+      console.error('Error creating sandbox:', error);
+    }
     
     // Find the current generating message to get its ID
     const currentGeneratingMessage = messages.find(msg => msg.isGenerating);
@@ -264,8 +469,11 @@ const LovableInterface: React.FC = () => {
 
     await processSteps();
 
-    // Generate detailed response
+    // Generate detailed response with insights
+    const insights = generateAIInsights(prompt, operation);
     const detailedResponse = `Perfect! I've analyzed your request and here's what I'm creating for you:
+
+${insights}
 
 🎯 **Project Analysis**
 I understand you want to build a ${operation === 'generate' ? 'new application' : 'modification to your existing app'}. Let me break down what I'm implementing:
@@ -313,23 +521,102 @@ The code is being generated now and will appear in the editor. You'll see each f
         : msg
     ));
 
-    // Simulate file generation with more realistic files
+    // Simulate file generation with Vite + TypeScript + React + Tailwind CSS stack
     const mockFiles: GeneratedFile[] = [
       {
-        path: 'src/App.jsx',
-        content: `import React from 'react';\nimport Header from './components/Header';\nimport Hero from './components/Hero';\nimport Features from './components/Features';\nimport Footer from './components/Footer';\n\nfunction App() {\n  return (\n    <div className="min-h-screen bg-white">\n      <Header />\n      <main>\n        <Hero />\n        <Features />\n      </main>\n      <Footer />\n    </div>\n  );\n}\n\nexport default App;`,
-        language: 'jsx',
+        path: 'src/App.tsx',
+        content: `import React from 'react';
+import { Header } from './components/Header';
+import { Hero } from './components/Hero';
+import { Features } from './components/Features';
+import { Footer } from './components/Footer';
+import './index.css';
+
+function App() {
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <Header />
+      <main>
+        <Hero />
+        <Features />
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default App;`,
+        language: 'tsx',
         status: 'generating'
       },
       {
-        path: 'src/components/Header.jsx',
-        content: `import React, { useState } from 'react';\nimport { Menu, X } from 'lucide-react';\n\nconst Header = () => {\n  const [isMenuOpen, setIsMenuOpen] = useState(false);\n\n  return (\n    <header className="bg-white shadow-sm border-b">\n      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">\n        <div className="flex justify-between items-center h-16">\n          <div className="flex items-center">\n            <h1 className="text-2xl font-bold text-gray-900">Lovable</h1>\n          </div>\n          <nav className="hidden md:flex space-x-8">\n            <a href="#features" className="text-gray-600 hover:text-gray-900">Features</a>\n            <a href="#about" className="text-gray-600 hover:text-gray-900">About</a>\n            <a href="#contact" className="text-gray-600 hover:text-gray-900">Contact</a>\n          </nav>\n        </div>\n      </div>\n    </header>\n  );\n};\n\nexport default Header;`,
-        language: 'jsx',
+        path: 'src/components/Header.tsx',
+        content: `import React from 'react';
+
+export const Header = () => {
+  return (
+    <header className="bg-gray-800 border-b border-gray-700">
+      <div className="container mx-auto px-4">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center">
+            <h1 className="text-2xl font-bold text-white">Lovable</h1>
+          </div>
+          <nav className="hidden md:flex">
+            <ul className="flex space-x-8">
+              <li>
+                <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
+              </li>
+              <li>
+                <a href="#about" className="text-gray-300 hover:text-white transition-colors">About</a>
+              </li>
+              <li>
+                <a href="#contact" className="text-gray-300 hover:text-white transition-colors">Contact</a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+};`,
+        language: 'tsx',
         status: 'generating'
       },
       {
         path: 'src/components/Hero.jsx',
-        content: `import React from 'react';\nimport { ArrowRight, Sparkles } from 'lucide-react';\n\nconst Hero = () => {\n  return (\n    <section className="bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 py-20">\n      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">\n        <div className="flex justify-center mb-6">\n          <div className="flex items-center gap-2 bg-purple-100 px-4 py-2 rounded-full">\n            <Sparkles className="w-5 h-5 text-purple-600" />\n            <span className="text-purple-700 font-medium">AI-Powered Development</span>\n          </div>\n        </div>\n        <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">\n          Build Amazing Apps with\n          <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600"> AI</span>\n        </h1>\n        <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">\n          Transform your ideas into beautiful, functional applications using the power of artificial intelligence. \n          No coding experience required.\n        </p>\n        <div className="flex flex-col sm:flex-row gap-4 justify-center">\n          <button className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-4 rounded-lg font-semibold hover:scale-105 transition-transform flex items-center gap-2">\n            Get Started Free\n            <ArrowRight className="w-5 h-5" />\n          </button>\n          <button className="border border-gray-300 text-gray-700 px-8 py-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors">\n            Watch Demo\n          </button>\n        </div>\n      </div>\n    </section>\n  );\n};\n\nexport default Hero;`,
+        content: `import React from 'react';
+
+const Hero = () => {
+  return (
+    <section className="bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="flex justify-center mb-6">
+          <div className="flex items-center gap-2 bg-yellow-500 px-4 py-2 rounded-full">
+            <span className="text-yellow-900 font-medium">🚀 AI-Powered Development</span>
+          </div>
+        </div>
+        <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
+          Build Amazing Apps with
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500"> AI</span>
+        </h1>
+        <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
+          Transform your ideas into beautiful, functional applications using the power of artificial intelligence.
+          No coding experience required.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-8 py-4 rounded-lg font-semibold hover:scale-105 transition-transform flex items-center gap-2">
+            Get Started Free →
+          </button>
+          <button className="border border-gray-400 text-white px-8 py-4 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+            Watch Demo
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default Hero;`,
         language: 'jsx',
         status: 'generating'
       },
@@ -338,10 +625,93 @@ The code is being generated now and will appear in the editor. You'll see each f
         content: `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer base {\n  body {\n    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;\n    line-height: 1.6;\n  }\n}\n\n@layer components {\n  .btn-primary {\n    @apply bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:scale-105 transition-transform;\n  }\n  \n  .card {\n    @apply bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow;\n  }\n}\n\n@keyframes fadeInUp {\n  from {\n    opacity: 0;\n    transform: translateY(30px);\n  }\n  to {\n    opacity: 1;\n    transform: translateY(0);\n  }\n}\n\n.animate-fade-in-up {\n  animation: fadeInUp 0.6s ease-out forwards;\n}`,
         language: 'css',
         status: 'generating'
+      },
+      {
+        path: 'src/components/Features.jsx',
+        content: `import React from 'react';
+
+const Features = () => {
+  const features = [
+    {
+      title: 'AI-Powered Development',
+      description: 'Build applications with the help of advanced AI that understands your requirements.'
+    },
+    {
+      title: 'Real-time Preview',
+      description: 'See your changes instantly with live preview functionality.'
+    },
+    {
+      title: 'Modern Tech Stack',
+      description: 'Built with React, TypeScript, and Tailwind CSS for optimal performance.'
+    }
+  ];
+
+  return (
+    <section className="py-20 bg-gray-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold text-white mb-4">Features</h2>
+          <p className="text-xl text-gray-300">Everything you need to build amazing applications</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {features.map((feature, index) => (
+            <div key={index} className="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
+              <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
+              <p className="text-gray-300">{feature.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default Features;`,
+        language: 'jsx',
+        status: 'generating'
+      },
+      {
+        path: 'src/components/Footer.jsx',
+        content: `import React from 'react';
+
+const Footer = () => {
+  return (
+    <footer className="bg-gray-900 border-t border-gray-700">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center">
+          <p className="text-gray-400">
+            Built with ❤️ using AI-powered development tools
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;`,
+        language: 'jsx',
+        status: 'generating'
       }
     ];
 
-    setGeneratedFiles(mockFiles);
+    // Add configuration files for Vite + TypeScript + shadcn-ui stack
+    const configFiles: GeneratedFile[] = [
+      {
+        path: 'package.json',
+        content: `{\n  "name": "lovable-app",\n  "private": true,\n  "version": "0.0.0",\n  "type": "module",\n  "scripts": {\n    "dev": "vite",\n    "build": "tsc && vite build",\n    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",\n    "preview": "vite preview"\n  },\n  "dependencies": {\n    "react": "^18.2.0",\n    "react-dom": "^18.2.0",\n    "lucide-react": "^0.263.1",\n    "@radix-ui/react-slot": "^1.0.2",\n    "class-variance-authority": "^0.7.0",\n    "clsx": "^2.0.0",\n    "tailwind-merge": "^1.14.0"\n  },\n  "devDependencies": {\n    "@types/react": "^18.2.15",\n    "@types/react-dom": "^18.2.7",\n    "@typescript-eslint/eslint-plugin": "^6.0.0",\n    "@typescript-eslint/parser": "^6.0.0",\n    "@vitejs/plugin-react": "^4.0.3",\n    "autoprefixer": "^10.4.14",\n    "eslint": "^8.45.0",\n    "eslint-plugin-react-hooks": "^4.6.0",\n    "eslint-plugin-react-refresh": "^0.4.3",\n    "postcss": "^8.4.27",\n    "tailwindcss": "^3.3.0",\n    "typescript": "^5.0.2",\n    "vite": "^4.4.5"\n  }\n}`,
+        language: 'json',
+        status: 'generating'
+      },
+      {
+        path: 'vite.config.ts',
+        content: `import { defineConfig } from 'vite';\nimport react from '@vitejs/plugin-react';\nimport path from 'path';\n\nexport default defineConfig({\n  plugins: [react()],\n  resolve: {\n    alias: {\n      "@": path.resolve(__dirname, "./src"),\n    },\n  },\n});`,
+        language: 'typescript',
+        status: 'generating'
+      }
+    ];
+
+    const allFiles = [...mockFiles, ...configFiles];
+    setGeneratedFiles(allFiles);
 
     // Update metadata with generated files
     setMessages(prev => prev.map(msg => 
@@ -350,19 +720,54 @@ The code is being generated now and will appear in the editor. You'll see each f
             ...msg, 
             metadata: {
               ...msg.metadata,
-              filesGenerated: mockFiles.map(f => f.path)
+              filesGenerated: allFiles.map(f => f.path)
             }
           }
         : msg
     ));
 
-    // Simulate file completion
+    // Simulate file completion and apply to sandbox
     setTimeout(async () => {
       setGeneratedFiles(prev => prev.map(file => ({ ...file, status: 'complete' })));
 
-      // Create sandbox preview after files are generated
+      // Apply generated files to the sandbox
+      try {
+        console.log('Applying generated files to sandbox...');
+        const applyResponse = await fetch('/api/apply-ai-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            response: generateMockAIResponse(allFiles),
+            isEdit: false,
+            packages: []
+          })
+        });
+
+        if (applyResponse.ok) {
+          const applyResult = await applyResponse.json();
+          console.log('Files applied successfully:', applyResult);
+        } else {
+          console.error('Failed to apply files to sandbox');
+        }
+      } catch (error) {
+        console.error('Error applying files:', error);
+      }
+
+      // Create sandbox preview after files are applied
       await createSandboxPreview();
-    }, 3000);
+
+      // Fallback: Create a simple HTML preview if sandbox fails
+      setTimeout(() => {
+        if (!previewUrl || previewUrl.trim() === '') {
+          console.log('Creating fallback HTML preview...');
+          const fallbackHtml = generateFallbackPreview(allFiles);
+          const blob = new Blob([fallbackHtml], { type: 'text/html' });
+          const fallbackUrl = URL.createObjectURL(blob);
+          setPreviewUrl(fallbackUrl);
+          console.log('Fallback preview created:', fallbackUrl);
+        }
+      }, 6000); // Wait a bit longer for sandbox to be ready
+    }, 4000);
   };
 
   const createSandboxPreview = async () => {
@@ -370,24 +775,40 @@ The code is being generated now and will appear in the editor. You'll see each f
       setIsPreviewLoading(true);
 
       // Generate a unique sandbox ID
-      const newSandboxId = `sandbox-${Date.now()}`;
+      const newSandboxId = `lovable-${Date.now()}`;
 
-      // Set up preview configuration
+      // Set up preview configuration for Vite stack
       setSandboxId(newSandboxId);
-      setPreviewType('nextjs'); // Could be dynamic based on project type
-      setPreviewPort(3000);
+      setPreviewType('vite'); // Use Vite as requested
+      setPreviewPort(5173); // Vite default port
 
-      // Create preview URL (in a real implementation, this would be the E2B sandbox URL)
-      const previewUrl = `https://${newSandboxId}-3000.e2b.dev`;
+      // Validate port configuration
+      const newPort = 5173;
+      if (typeof newPort !== 'number' || newPort <= 0 || newPort >= 65536) {
+        console.error('Invalid port configuration:', newPort);
+      } else {
+        console.log('Setting preview port to:', newPort);
+      }
+
+      // Create preview URL (E2B sandbox URL)
+      const previewUrl = `https://${newSandboxId}-${newPort}.e2b.dev`;
       setPreviewUrl(previewUrl);
 
-      // Show the preview
-      setShowPreview(true);
+      console.log('Sandbox Preview Setup:', {
+        sandboxId: newSandboxId,
+        port: newPort,
+        previewUrl,
+        type: 'vite'
+      });
 
-      // Simulate sandbox startup time
+      // Automatically switch to preview mode when ready
+      setViewMode('preview');
+
+      // Simulate Vite dev server startup time
       setTimeout(() => {
         setIsPreviewLoading(false);
-      }, 2000);
+        console.log('Preview loading complete');
+      }, 3000);
 
     } catch (error) {
       console.error('Error creating sandbox preview:', error);
@@ -395,58 +816,7 @@ The code is being generated now and will appear in the editor. You'll see each f
     }
   };
 
-  const handleFileUpload = (files: FileList) => {
-    const newImages = Array.from(files).filter(file => file.type.startsWith('image/'));
-    if (newImages.length > 0) {
-      const imageUrls = newImages.map(file => ({
-        id: `img-${Date.now()}-${Math.random()}`,
-        file,
-        url: URL.createObjectURL(file),
-        name: file.name
-      }));
-      setUploadedImages(prev => [...prev, ...imageUrls]);
-      setShowUploadModal(false);
-      // You can add image analysis logic here if needed
-    }
-  };
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleVoiceClick = () => {
-    if (!recognitionRef.current) {
-      alert('Speech recognition is not supported in your browser.');
-      return;
-    }
-
-    if (isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-      setShowVoiceModal(false);
-    } else {
-      setIsRecording(true);
-      setShowVoiceModal(true);
-      recognitionRef.current.start();
-    }
-  };
-
-  const removeUploadedImage = (imageId: string) => {
-    setUploadedImages(prev => {
-      const imageToRemove = prev.find(img => img.id === imageId);
-      if (imageToRemove) {
-        URL.revokeObjectURL(imageToRemove.url);
-      }
-      return prev.filter(img => img.id !== imageId);
-    });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
 
   const quickPrompts = [
     "Create a landing page for a SaaS product",
@@ -478,23 +848,15 @@ The code is being generated now and will appear in the editor. You'll see each f
     // In real app, send feedback to analytics
   };
 
-  const handleImageAnalysis = (analysis: any, imageUrl: string) => {
-    const prompt = `Based on this design analysis: ${JSON.stringify(analysis, null, 2)}\n\nCreate a similar design with these elements and patterns.`;
-    setInputValue(prompt);
-  };
 
-  const handleVoiceInput = (transcript: string) => {
-    setInputValue(transcript);
-  };
-
-  const handleErrorRetry = async (strategy?: string) => {
+  const handleErrorRetry = async (_strategy?: string) => {
     setIsRetrying(true);
     try {
       // Simulate retry logic based on strategy
       await new Promise(resolve => setTimeout(resolve, 2000));
       setCurrentError(null);
       // Retry the last failed operation
-    } catch (error) {
+    } catch (_error) {
       // Handle retry failure
     } finally {
       setIsRetrying(false);
@@ -529,6 +891,26 @@ The code is being generated now and will appear in the editor. You'll see each f
     
     setInputValue(combinedPrompt);
     setShowSiteAnalyzer(false);
+  };
+
+  const handleCodeCorrected = (correctedCode: string) => {
+    // Update the generated files with corrected code
+    setGeneratedFiles(prev => prev.map(file => {
+      if (file.path.endsWith('.tsx') || file.path.endsWith('.jsx')) {
+        return { ...file, content: correctedCode };
+      }
+      return file;
+    }));
+    
+    // Show success message
+    console.log('Code automatically corrected!');
+  };
+
+  const handleErrorsDetected = (errors: any[]) => {
+    setCodeErrors(errors);
+    if (errors.length > 0) {
+      console.log(`Detected ${errors.length} code errors - auto-fixing...`);
+    }
   };
 
   return (
@@ -595,19 +977,34 @@ The code is being generated now and will appear in the editor. You'll see each f
             <span className="hidden sm:inline">Git</span>
           </button>
 
+          {/* Code/Preview Toggle */}
+          <div className="flex items-center bg-white/80 backdrop-blur-sm border border-gray-200 rounded-lg p-1">
           <button
-            onClick={() => setShowPreview(!showPreview)}
+              onClick={() => setViewMode('code')}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${
+                viewMode === 'code'
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+              }`}
+              title="Code Mode"
+            >
+              <Code2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Code</span>
+            </button>
+            <button
+              onClick={() => setViewMode('preview')}
             disabled={!sandboxId}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              showPreview
-                ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${
+                viewMode === 'preview'
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
             } ${!sandboxId ? 'opacity-50 cursor-not-allowed' : ''}`}
-            title="Toggle Preview"
+              title="Preview Mode"
           >
             <Eye className="w-4 h-4" />
             <span className="hidden sm:inline">Preview</span>
           </button>
+          </div>
           
           <button 
             onClick={() => setShowDeployment(true)}
@@ -632,7 +1029,7 @@ The code is being generated now and will appear in the editor. You'll see each f
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Chat Panel - Fixed 30% width */}
-        <div className="w-[30%] flex flex-col bg-white border-r border-gray-200 flex-shrink-0">
+        <div className="w-[30%] flex flex-col bg-white border-r border-gray-200 flex-shrink-0 max-h-screen">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <AnimatePresence>
@@ -666,162 +1063,27 @@ The code is being generated now and will appear in the editor. You'll see each f
             </div>
           )}
 
-          {/* Multi-modal Input */}
-          <div className="p-6 border-t border-gray-200 space-y-4">
-            <MultiModalInput
-              onImageAnalysis={handleImageAnalysis}
-              onVoiceInput={handleVoiceInput}
-            />
-            
-            {/* Text Input Area */}
-            <div className="flex gap-3 items-end">
-              <div className="flex-1 relative">
-                <textarea
-                  ref={inputRef}
+          {/* Custom Chat Input Area */}
+          <div className="p-6 border-t border-gray-200">
+            <CustomChatInput
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Describe what you want to build, upload design references, or use voice input..."
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none min-h-[48px] max-h-32"
-                  rows={1}
+              onChange={setInputValue}
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendMessage();
+              }}
+                  placeholder="Describe what you want to build..."
                   disabled={isGenerating}
-                />
-
-                {/* Upload and Voice Icons */}
-                <div className="absolute right-3 bottom-3 flex items-center gap-2">
-                  <button
-                    onClick={handleUploadClick}
-                    className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors group"
-                    title="Upload image"
-                    disabled={isGenerating}
-                  >
-                    <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  </button>
-
-                  <button
-                    onClick={handleVoiceClick}
-                    className={`p-2 rounded-lg transition-colors group ${
-                      isRecording
-                        ? 'text-red-600 bg-red-50 hover:bg-red-100'
-                        : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'
-                    }`}
-                    title={isRecording ? "Stop recording" : "Voice input"}
-                    disabled={isGenerating}
-                  >
-                    {isRecording ? (
-                      <MicOff className="w-4 h-4 animate-pulse" />
-                    ) : (
-                      <Mic className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isGenerating}
-                className="px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                {isGenerating ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </button>
-            </div>
+              isGenerating={isGenerating}
+            />
           </div>
         </div>
 
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
-          className="hidden"
-        />
-
-        {/* Uploaded Images Preview */}
-        {uploadedImages.length > 0 && (
-          <div className="px-6 pb-4">
-            <div className="flex items-center gap-2 mb-3">
-              <ImageIcon className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-600">Attached Images ({uploadedImages.length})</span>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {uploadedImages.map((image) => (
-                <div key={image.id} className="relative flex-shrink-0">
-                  <img
-                    src={image.url}
-                    alt={image.name}
-                    className="w-16 h-16 object-cover rounded-lg border border-gray-200"
-                  />
-                  <button
-                    onClick={() => removeUploadedImage(image.id)}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors text-xs"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Voice Recording Modal */}
-        {showVoiceModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl p-6 max-w-sm w-full text-center">
-              <div className="flex justify-center mb-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                  isRecording ? 'bg-red-100' : 'bg-purple-100'
-                }`}>
-                  {isRecording ? (
-                    <Mic className="w-8 h-8 text-red-600 animate-pulse" />
-                  ) : (
-                    <MicOff className="w-8 h-8 text-purple-600" />
-                  )}
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {isRecording ? 'Listening...' : 'Voice Input'}
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {isRecording
-                  ? 'Speak your request clearly. Click stop when finished.'
-                  : 'Click the microphone to start recording your voice input.'
-                }
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => {
-                    setShowVoiceModal(false);
-                    setIsRecording(false);
-                    recognitionRef.current?.stop();
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                {isRecording && (
-                  <button
-                    onClick={handleVoiceClick}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Stop Recording
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
 
         {/* Code Editor Panel and Preview */}
         <div className="flex-1 flex min-w-0">
-          {/* Code Editor - Takes full width when preview is hidden, half when shown */}
-          <div className={"flex flex-col min-w-0 " + (showPreview ? "w-1/2" : "flex-1")}>
+          {/* Code Editor - Takes full width in code mode, hidden in preview mode */}
+          <div className={"flex flex-col min-w-0 " + (viewMode === 'code' ? "flex-1" : "hidden")}>
             {/* Error Recovery */}
             {currentError && (
               <div className="p-4 border-b border-gray-200">
@@ -834,66 +1096,136 @@ The code is being generated now and will appear in the editor. You'll see each f
               </div>
             )}
 
-            {/* Version Control Panel */}
+            {/* Git Modal */}
+            <AnimatePresence>
             {showVersionControl && generatedFiles.length > 0 && (
-              <div className="h-80 border-b border-gray-200">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+                  onClick={() => setShowVersionControl(false)}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Modal Header */}
+                    <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <GitBranch className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-bold text-gray-900">Git Version Control</h2>
+                            <p className="text-sm text-gray-600">Manage your code changes and collaborate effectively</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowVersionControl(false)}
+                          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Git Tabs and Action Buttons */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex space-x-1 bg-white rounded-lg p-1 shadow-sm">
+                          {[
+                            { id: 'history', label: 'History', icon: History },
+                            { id: 'branches', label: 'Branches', icon: GitBranch },
+                            { id: 'changes', label: 'Changes', icon: FileText }
+                          ].map(tab => (
+                            <button
+                              key={tab.id}
+                              onClick={() => setActiveTab(tab.id as any)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                activeTab === tab.id
+                                  ? 'bg-purple-600 text-white shadow-sm'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                              }`}
+                            >
+                              <tab.icon className="w-4 h-4" />
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
+                            <Save className="w-4 h-4" />
+                            Quick Commit
+                          </button>
+                          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                            <GitBranch className="w-4 h-4" />
+                            New Branch
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Modal Content */}
+                    <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
                 <VersionControlPanel
                   currentFiles={generatedFiles.map(f => ({ path: f.path, content: f.content }))}
                   onRevert={handleVersionControlAction.onRevert}
                   onCreateBranch={handleVersionControlAction.onCreateBranch}
                   onSwitchBranch={handleVersionControlAction.onSwitchBranch}
                   onCommit={handleVersionControlAction.onCommit}
+                        className="shadow-none border-none"
+                        isModal={true}
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
                 />
               </div>
+                  </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
-            <div className="flex-1">
+            <div className="flex-1 flex flex-col">
               <RealtimeCodeEditor
                 isGenerating={isGenerating}
                 generatedFiles={generatedFiles}
-                className="h-full"
+                className="flex-1"
               />
+              
+              {/* Auto Error Correction */}
+              {generatedFiles.length > 0 && (
+                <div className="border-t border-gray-200 p-4">
+                  <AutoErrorCorrection
+                    generatedCode={generatedFiles.find(f => f.path.endsWith('.tsx') || f.path.endsWith('.jsx'))?.content || ''}
+                    onCodeCorrected={handleCodeCorrected}
+                    onErrorsDetected={handleErrorsDetected}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Preview Panel - Shows when preview is enabled */}
-          {showPreview && (
-            <div className="w-1/2 flex flex-col min-w-0 border-l border-gray-200">
+          {/* Preview Panel - Shows in preview mode and takes full width */}
+          {viewMode === 'preview' && (
+            <div className="flex-1 flex flex-col min-w-0">
               <div className="flex-1">
-                <SandboxPreview
-                  sandboxId={sandboxId}
-                  port={previewPort}
-                  type={previewType}
-                  isLoading={isPreviewLoading}
-                />
+              <SandboxPreview
+                sandboxId={sandboxId}
+                port={previewPort}
+                type={previewType}
+                isLoading={isPreviewLoading}
+                previewUrl={previewUrl}
+              />
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Status Bar */}
-      <div className="bg-gray-800 text-white px-6 py-2 flex items-center justify-between text-sm">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isGenerating ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`}></div>
-            <span>{isGenerating ? 'Generating...' : 'Ready'}</span>
-          </div>
-          {generatedFiles.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Code2 className="w-4 h-4" />
-              <span>{generatedFiles.length} files generated</span>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4" />
-            <span>Powered by {selectedModel}</span>
-          </div>
-        </div>
-      </div>
 
       {/* Modals */}
       <AnimatePresence>

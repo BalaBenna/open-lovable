@@ -252,18 +252,18 @@ export const getDefaultThinkingSteps = (operation: 'generate' | 'edit' | 'analyz
         {
           id: `${prefix}gen-analyze`,
           title: 'Analyzing Requirements',
-          description: 'Understanding what you want to build',
+          description: 'Understanding what you want to build and planning the optimal solution',
           status: 'pending',
           icon: <Search className="w-4 h-4 text-blue-400" />,
-          details: ['Parsing user input', 'Identifying key features', 'Determining scope']
+          details: ['Parsing user input with AI understanding', 'Identifying key features and user needs', 'Determining project scope and complexity', 'Researching best practices for your use case']
         },
         {
           id: `${prefix}gen-plan`,
           title: 'Planning Architecture',
-          description: 'Designing the application structure',
+          description: 'Designing a scalable and maintainable application structure',
           status: 'pending',
           icon: <Target className="w-4 h-4 text-yellow-400" />,
-          details: ['Component hierarchy', 'State management', 'File structure']
+          details: ['Designing component hierarchy for reusability', 'Planning state management strategy', 'Organizing file structure for maintainability', 'Considering performance and scalability']
         },
         {
           id: `${prefix}gen-design`,
