@@ -155,7 +155,7 @@ const AIThinkingDisplay: React.FC<AIThinkingDisplayProps> = ({
       {/* Current Thought */}
       {currentThought && (
         <motion.div
-          key={currentThought}
+          key={currentThought || `thought-${Math.random()}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
@@ -173,7 +173,7 @@ const AIThinkingDisplay: React.FC<AIThinkingDisplayProps> = ({
         <AnimatePresence>
           {visibleSteps.map((step, index) => (
             <motion.div
-              key={step.id}
+              key={step.id || `step-${index}-${Math.random()}`}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
@@ -202,7 +202,7 @@ const AIThinkingDisplay: React.FC<AIThinkingDisplayProps> = ({
                   {step.details && step.details.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {step.details.map((detail, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-xs text-gray-400">
+                        <div key={"step-detail-" + idx + "-" + (detail || `detail-${Math.random()}`)} className="flex items-center gap-2 text-xs text-gray-400">
                           <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
                           <span>{detail}</span>
                         </div>

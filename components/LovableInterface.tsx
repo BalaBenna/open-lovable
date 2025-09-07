@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { globalKeyFix } from '../lib/globalKeyFix';
 import {
   Send,
   Sparkles,
@@ -8,9 +9,7 @@ import {
   Eye,
   BookTemplate,
   Rocket,
-  BookOpen,
   GitBranch,
-  Search,
   Settings,
   X,
   Save,
@@ -21,7 +20,6 @@ import {
   Mic,
   Globe,
   Zap,
-  BarChart3,
   ShoppingCart,
   User
 } from 'lucide-react';
@@ -30,10 +28,8 @@ import RealtimeCodeEditor from './RealtimeCodeEditor';
 import EnhancedChatMessage from './EnhancedChatMessage';
 import ProjectTemplates from './ProjectTemplates';
 import DeploymentOptions from './DeploymentOptions';
-import CodeExplanationPanel from './CodeExplanationPanel';
 import ErrorRecoverySystem from './ErrorRecoverySystem';
 import VersionControlPanel from './VersionControlPanel';
-import MultiSiteAnalyzer from './MultiSiteAnalyzer';
 
 // Custom Chat Input Component
 interface CustomChatInputProps {
@@ -269,7 +265,7 @@ const RealtimeWebsiteAnalyzer: React.FC<{
                   {isAnalyzing ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <BarChart3 className="w-4 h-4" />
+                    <Globe className="w-4 h-4" />
                   )}
                   {isAnalyzing ? 'Analyzing...' : 'Analyze'}
                 </button>
@@ -294,7 +290,7 @@ const RealtimeWebsiteAnalyzer: React.FC<{
                             <span className="text-sm font-medium text-gray-700">Colors:</span>
                             <div className="flex flex-wrap gap-2 mt-1">
                               {realTimeData.colors.slice(0, 6).map((color: string, i: number) => (
-                                <div key={`color-${i}-${color}`} className="flex items-center gap-2">
+                                <div key={globalKeyFix(`color-${i}-${color || 'unknown'}`)} className="flex items-center gap-2">
                                   <div
                                     className="w-4 h-4 rounded border"
                                     style={{ backgroundColor: color }}
@@ -382,28 +378,18 @@ const RealtimeWebsiteAnalyzer: React.FC<{
 const SettingsModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  generatedFiles: any[];
   onTemplateSelect: (template: any) => void;
-  onSiteAnalysisComplete: (analysis: any) => void;
-  onShowCodeExplanation: () => void;
   onShowVersionControl: () => void;
-  onShowRealtimeAnalyzer: () => void;
 }> = ({
   isOpen,
   onClose,
-  generatedFiles,
   onTemplateSelect,
-  onSiteAnalysisComplete,
-  onShowCodeExplanation,
-  onShowVersionControl,
-  onShowRealtimeAnalyzer
+  onShowVersionControl
 }) => {
   const [activeSettingsTab, setActiveSettingsTab] = useState('templates');
 
   const settingsTabs = [
     { id: 'templates', label: 'Templates', icon: BookTemplate, description: 'Project templates and starters' },
-    { id: 'analyze', label: 'Analyze', icon: Search, description: 'Website analysis and design extraction' },
-    { id: 'explain', label: 'Explain', icon: BookOpen, description: 'Code explanation and documentation' },
     { id: 'git', label: 'Git', icon: GitBranch, description: 'Version control and collaboration' }
   ];
 
@@ -450,18 +436,18 @@ const SettingsModal: React.FC<{
               <div className="flex space-x-1 bg-white rounded-lg p-1 shadow-sm">
                 {settingsTabs.map(tab => (
                   <button
-                    key={tab.id || `tab-${tab.id}-${Math.random()}`}
+                    key={globalKeyFix(`tab-${tab.id || 'unknown'}`)}
                     onClick={() => setActiveSettingsTab(tab.id)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex-1 ${
-                      activeSettingsTab === tab.id
+                    className={"flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex-1 " +
+                      (activeSettingsTab === tab.id
                         ? 'bg-purple-600 text-white shadow-sm'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
+                      )}
                   >
                     <tab.icon className="w-4 h-4" />
                     <div className="text-left">
                       <div className="font-semibold">{tab.label}</div>
-                      <div className={`text-xs ${activeSettingsTab === tab.id ? 'text-purple-100' : 'text-gray-500'}`}>
+                      <div className={"text-xs " + (activeSettingsTab === tab.id ? 'text-purple-100' : 'text-gray-500')}>
                         {tab.description}
                       </div>
                     </div>
@@ -485,14 +471,14 @@ const SettingsModal: React.FC<{
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
                       { name: 'Landing Page', description: 'Modern landing page with hero section', icon: Sparkles },
-                      { name: 'Dashboard', description: 'Admin dashboard with charts', icon: BarChart3 },
+                      { name: 'Dashboard', description: 'Admin dashboard with charts', icon: Zap },
                       { name: 'E-commerce', description: 'Online store template', icon: ShoppingCart },
                       { name: 'Blog', description: 'Content management system', icon: FileText },
                       { name: 'Portfolio', description: 'Personal portfolio website', icon: User },
                       { name: 'SaaS', description: 'Software as a service template', icon: Rocket }
                     ].map((template, index) => (
                       <div
-                        key={`template-${index}`}
+                        key={globalKeyFix(`template-${index}`)}
                         onClick={() => onTemplateSelect(template)}
                         className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 cursor-pointer transition-colors border border-gray-200 hover:border-purple-300"
                       >
@@ -505,94 +491,6 @@ const SettingsModal: React.FC<{
                 </div>
               )}
 
-              {activeSettingsTab === 'analyze' && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <Search className="w-16 h-16 mx-auto mb-4 text-blue-500" />
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Website Analysis</h3>
-                    <p className="text-gray-600 mb-6">
-                      Analyze any website to extract design patterns, colors, and content structure
-                    </p>
-                  </div>
-
-                  <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 className="font-semibold text-gray-900 mb-1">Real-time Analysis</h4>
-                        <p className="text-sm text-gray-600">Get live data from any website instantly</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          onShowRealtimeAnalyzer();
-                          // Close settings modal
-                          onClose();
-                        }}
-                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                      >
-                        <BarChart3 className="w-4 h-4" />
-                        Start Analysis
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-purple-500" />
-                        <span>Design Patterns</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-blue-500" />
-                        <span>Content Structure</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Eye className="w-4 h-4 text-green-500" />
-                        <span>Live Preview</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeSettingsTab === 'explain' && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <BookOpen className="w-16 h-16 mx-auto mb-4 text-green-500" />
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Code Explanation</h3>
-                    <p className="text-gray-600 mb-6">
-                      Get detailed explanations of your generated code and understand how everything works
-                    </p>
-                  </div>
-
-                  <div className="bg-green-50 rounded-lg p-6 border border-green-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 className="font-semibold text-gray-900 mb-1">AI-Powered Explanations</h4>
-                        <p className="text-sm text-gray-600">Understand your code with detailed breakdowns</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          onShowCodeExplanation();
-                          // Close settings modal
-                          onClose();
-                        }}
-                        disabled={generatedFiles.length === 0}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                      >
-                        <BookOpen className="w-4 h-4" />
-                        Explain Code
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div className="bg-white rounded p-3 border">
-                        <div className="font-medium text-gray-900 mb-1">Component Analysis</div>
-                        <div className="text-gray-600">Break down React components</div>
-                      </div>
-                      <div className="bg-white rounded p-3 border">
-                        <div className="font-medium text-gray-900 mb-1">Logic Explanation</div>
-                        <div className="text-gray-600">Understand business logic</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {activeSettingsTab === 'git' && (
                 <div className="space-y-6">
@@ -685,7 +583,11 @@ const LovableInterface: React.FC = () => {
     const timestamp = Date.now();
     const counter = messageIdCounter;
     setMessageIdCounter(prev => prev + 1);
-    return `${timestamp}-${counter}`;
+    // Add microsecond precision and random component to ensure uniqueness
+    const microTime = typeof performance !== 'undefined' ? 
+      Math.floor(performance.now() * 1000) : 
+      timestamp * 1000 + Math.random() * 1000;
+    return `msg-${microTime}-${counter}`;
   };
 
   const [messages, setMessages] = useState<Message[]>([
@@ -708,15 +610,14 @@ const LovableInterface: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showDeployment, setShowDeployment] = useState(false);
-  const [showCodeExplanation, setShowCodeExplanation] = useState(false);
   const [showVersionControl, setShowVersionControl] = useState(false);
-  const [showSiteAnalyzer, setShowSiteAnalyzer] = useState(false);
-  const [showRealtimeAnalyzer, setShowRealtimeAnalyzer] = useState(false);
   const [activeTab, setActiveTab] = useState<'history' | 'branches' | 'changes'>('history');
   const [currentProject, setCurrentProject] = useState('my-lovable-app');
   const [currentError, setCurrentError] = useState<any>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [viewMode, setViewMode] = useState<'code' | 'preview'>('code'); // Toggle between code and preview
+  const [codeErrors, setCodeErrors] = useState<any[]>([]);
+  const [showSiteAnalyzer, setShowSiteAnalyzer] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom of messages
@@ -756,7 +657,7 @@ const LovableInterface: React.FC = () => {
       console.error('Error generating code:', error);
       setMessages(prev => prev.map(msg => 
         msg.id === assistantMessage.id 
-          ? { ...msg, content: 'Sorry, I encountered an error. Please try again.', isGenerating: false }
+          ? { ...msg, content: 'I encountered an issue while generating your code. Let me try a different approach...', isGenerating: false }
           : msg
       ));
     } finally {
@@ -870,32 +771,96 @@ const LovableInterface: React.FC = () => {
     return `🚀 **Application Development Insights**\nI'm building your application with:\n• Modern React architecture and patterns\n• TypeScript for enhanced developer experience\n• Responsive design that works everywhere\n• Performance optimizations for fast loading\n• Clean, maintainable code structure that scales`;
   };
 
+  const getDefaultThinkingSteps = (operation: string, messageId: string) => {
+    const baseSteps = [
+      {
+        id: 'analyze-request',
+        title: 'Analyzing your request',
+        description: 'Understanding what you want to build',
+        status: 'pending' as const,
+        duration: 0
+      },
+      {
+        id: 'plan-architecture',
+        title: 'Planning architecture',
+        description: 'Designing the component structure',
+        status: 'pending' as const,
+        duration: 0
+      },
+      {
+        id: 'generate-code',
+        title: 'Generating code',
+        description: 'Creating the implementation',
+        status: 'pending' as const,
+        duration: 0
+      },
+      {
+        id: 'optimize',
+        title: 'Optimizing',
+        description: 'Adding performance improvements',
+        status: 'pending' as const,
+        duration: 0
+      }
+    ];
+
+    if (operation === 'edit') {
+      return [
+        {
+          id: 'analyze-changes',
+          title: 'Analyzing changes',
+          description: 'Understanding what needs to be modified',
+          status: 'pending' as const,
+          duration: 0
+        },
+        {
+          id: 'update-code',
+          title: 'Updating code',
+          description: 'Making the requested changes',
+          status: 'pending' as const,
+          duration: 0
+        },
+        {
+          id: 'test-changes',
+          title: 'Testing changes',
+          description: 'Ensuring everything works correctly',
+          status: 'pending' as const,
+          duration: 0
+        }
+      ];
+    }
+
+    return baseSteps;
+  };
+
   const simulateCodeGeneration = async (prompt: string) => {
     const startTime = Date.now();
     
-    // Determine operation type
-    const operation = prompt.toLowerCase().includes('edit') || prompt.toLowerCase().includes('change') || prompt.toLowerCase().includes('update') 
-      ? 'edit' : prompt.toLowerCase().includes('analyze') ? 'analyze' : 'generate';
-
-    // First, ensure we have a sandbox created
     try {
-      console.log('Ensuring sandbox exists...');
-      const sandboxResponse = await fetch('/api/create-ai-sandbox', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      // Determine operation type
+      const operation = prompt.toLowerCase().includes('edit') || prompt.toLowerCase().includes('change') || prompt.toLowerCase().includes('update') 
+        ? 'edit' : prompt.toLowerCase().includes('analyze') ? 'analyze' : 'generate';
 
-      if (sandboxResponse.ok) {
-        const sandboxData = await sandboxResponse.json();
-        console.log('Sandbox created successfully:', sandboxData);
-        setSandboxId(sandboxData.sandboxId);
-        setPreviewUrl(sandboxData.url);
-      } else {
-        console.error('Failed to create sandbox');
+      // First, ensure we have a sandbox created
+      try {
+        console.log('Ensuring sandbox exists...');
+        const sandboxResponse = await fetch('/api/create-ai-sandbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (sandboxResponse.ok) {
+          const sandboxData = await sandboxResponse.json();
+          console.log('Sandbox created successfully:', sandboxData);
+          setSandboxId(sandboxData.sandboxId);
+          setPreviewUrl(sandboxData.url);
+        } else {
+          console.error('Failed to create sandbox');
+          // Don't throw error, continue with fallback
+        }
+      } catch (error) {
+        console.error('Error creating sandbox:', error);
+        // Don't throw error, continue with fallback
       }
-    } catch (error) {
-      console.error('Error creating sandbox:', error);
-    }
     
     // Find the current generating message to get its ID
     const currentGeneratingMessage = messages.find(msg => msg.isGenerating);
@@ -916,12 +881,16 @@ const LovableInterface: React.FC = () => {
           }
         : msg
     ));
+    
+    console.log('Added thinking state to message:', messageId, 'with steps:', thinkingSteps.length);
 
     // Simulate thinking process
     let stepIndex = 0;
     const processSteps = async () => {
+      console.log('Starting thinking process with', thinkingSteps.length, 'steps');
       while (stepIndex < thinkingSteps.length) {
         const currentStep = thinkingSteps[stepIndex];
+        console.log('Processing step', stepIndex + 1, ':', currentStep.title);
         
         // Update step to in-progress
         setMessages(prev => prev.map(msg => 
@@ -961,8 +930,10 @@ const LovableInterface: React.FC = () => {
             : msg
         ));
 
+        console.log('Completed step', stepIndex + 1, ':', currentStep.title);
         stepIndex++;
       }
+      console.log('Thinking process completed');
     };
 
     await processSteps();
@@ -1153,7 +1124,7 @@ const Features = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <div key={'feature-' + index + '-' + Date.now() + '-' + Math.random()} className="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
+            <div key={globalKeyFix('feature-' + index)} className="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
               <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
               <p className="text-gray-300">{feature.description}</p>
             </div>
@@ -1266,6 +1237,24 @@ export default Footer;`,
         }
       }, 6000); // Wait a bit longer for sandbox to be ready
     }, 4000);
+    
+    } catch (error) {
+      console.error('Error in simulateCodeGeneration:', error);
+      // Update the generating message with error
+      setMessages(prev => prev.map(msg => 
+        msg.isGenerating 
+          ? { 
+              ...msg, 
+              content: 'I encountered an issue while generating your code. Let me try a different approach...', 
+              isGenerating: false,
+              thinking: {
+                ...msg.thinking!,
+                isThinking: false
+              }
+            }
+          : msg
+      ));
+    }
   };
 
   const createSandboxPreview = async () => {
@@ -1494,7 +1483,7 @@ export default Footer;`,
             <AnimatePresence>
               {messages.map((message) => (
                 <EnhancedChatMessage
-                  key={message.id || `message-${Date.now()}-${Math.random()}`}
+                  key={globalKeyFix(`message-${message.id || 'unknown'}`)}
                   message={message}
                   onRegenerate={handleRegenerate}
                   onFeedback={handleFeedback}
@@ -1511,7 +1500,7 @@ export default Footer;`,
               <div className="grid grid-cols-2 gap-2">
                 {quickPrompts.map((prompt, index) => (
                   <button
-                    key={'prompt-' + index + '-' + Date.now() + '-' + Math.random()}
+                    key={globalKeyFix(`prompt-${index}`)}
                     onClick={() => setInputValue(prompt)}
                     className="text-left p-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
                   >
@@ -1602,13 +1591,13 @@ export default Footer;`,
                             { id: 'changes', label: 'Changes', icon: FileText }
                           ].map(tab => (
                             <button
-                              key={tab.id || `git-tab-${tab.id}-${Math.random()}`}
+                              key={globalKeyFix(`tab-${tab.id || 'unknown'}`)}
                               onClick={() => setActiveTab(tab.id as any)}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                                activeTab === tab.id
+                              className={"flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors " +
+                                (activeTab === tab.id
                                   ? 'bg-purple-600 text-white shadow-sm'
                                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                              }`}
+                                )}
                             >
                               <tab.icon className="w-4 h-4" />
                               {tab.label}
@@ -1703,38 +1692,16 @@ export default Footer;`,
           />
         )}
 
-        {showCodeExplanation && generatedFiles.length > 0 && (
-          <CodeExplanationPanel
-            files={generatedFiles.map(f => ({ path: f.path, content: f.content }))}
-            onClose={() => setShowCodeExplanation(false)}
-          />
-        )}
 
-        {showSiteAnalyzer && (
-          <MultiSiteAnalyzer
-            onAnalysisComplete={handleSiteAnalysisComplete}
-            onClose={() => setShowSiteAnalyzer(false)}
-          />
-        )}
 
         {/* Settings Modal */}
         <SettingsModal
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
-          generatedFiles={generatedFiles}
           onTemplateSelect={handleTemplateSelect}
-          onSiteAnalysisComplete={handleSiteAnalysisComplete}
-          onShowCodeExplanation={() => setShowCodeExplanation(true)}
           onShowVersionControl={() => setShowVersionControl(true)}
-          onShowRealtimeAnalyzer={() => setShowRealtimeAnalyzer(true)}
         />
 
-        {/* Real-time Website Analyzer */}
-        <RealtimeWebsiteAnalyzer
-          isOpen={showRealtimeAnalyzer}
-          onClose={() => setShowRealtimeAnalyzer(false)}
-          onAnalysisComplete={handleSiteAnalysisComplete}
-        />
       </AnimatePresence>
     </div>
   );

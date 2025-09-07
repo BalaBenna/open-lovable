@@ -217,7 +217,7 @@ const EnhancedChatMessage: React.FC<EnhancedChatMessageProps> = ({
                         <div className="flex flex-wrap gap-1">
                           {message.metadata.filesGenerated.map((file, index) => (
                             <span
-                              key={`${message.id}-file-${index}-${file}`}
+                              key={"file-" + (index || Math.random()) + "-" + (file || `file-${Math.random()}`)}
                               className="px-2 py-1 bg-gray-200 rounded text-xs font-mono"
                             >
                               {file.split('/').pop()}

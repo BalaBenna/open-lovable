@@ -1,5 +1,14 @@
 'use client';
 
+// Import key validation in development
+if (process.env.NODE_ENV === 'development') {
+  import('../lib/keyValidation');
+}
+
+import { safeKey, safeKeyWithIndex } from '../lib/keyReplacer';
+import { logRenderKeys, assertUniqueKeys } from '../lib/keyValidation';
+import { globalKeyFix, safeKeyWithIndex as globalSafeKeyWithIndex } from '../lib/globalKeyFix';
+
 import React, { Suspense, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import LovableInterface from '@/components/LovableInterface';
@@ -43,7 +52,7 @@ const renderChatContent = (content: string) => {
       const textBefore = content.slice(lastIndex, match.index);
       if (textBefore.trim()) {
         parts.push(
-          <span key={`text-${lastIndex}`} className="whitespace-pre-wrap">
+          <span key={safeKeyWithIndex(lastIndex, undefined, 'text')} className="whitespace-pre-wrap">
             {textBefore}
           </span>
         );
@@ -54,9 +63,9 @@ const renderChatContent = (content: string) => {
     const diagramContent = match[1].trim();
     parts.push(
       <MermaidDiagram 
-        key={`mermaid-${match.index}`}
+        key={safeKeyWithIndex(match.index, undefined, 'mermaid')}
         chart={diagramContent}
-        id={`chat-mermaid-${match.index}`}
+        id={"chat-mermaid-" + match.index}
       />
     );
 
@@ -68,7 +77,7 @@ const renderChatContent = (content: string) => {
     const remainingText = content.slice(lastIndex);
     if (remainingText.trim()) {
       parts.push(
-        <span key={`text-${lastIndex}`} className="whitespace-pre-wrap">
+        <span key={safeKeyWithIndex(lastIndex, undefined, 'text')} className="whitespace-pre-wrap">
           {remainingText}
         </span>
       );
@@ -704,9 +713,13 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             setTimeout(() => {
               // Force refresh the iframe to show new files
               if (iframeRef.current) {
-                iframeRef.current.src = iframeRef.current.src;
+                const currentSrc = iframeRef.current.src;
+                // Force reload by adding a timestamp parameter
+                const separator = currentSrc.includes('?') ? '&' : '?';
+                iframeRef.current.src = currentSrc + separator + '_t=' + Date.now();
+                console.log('[Preview] Refreshing iframe with new content:', iframeRef.current.src);
               }
-            }, 1000);
+            }, appConfig.codeApplication.defaultRefreshDelay);
           }
         }
         
@@ -833,7 +846,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               console.log('[home] Refreshing iframe after code application...');
               
               // Method 1: Change src with timestamp
-              const urlWithTimestamp = `${sandboxData.url}?t=${Date.now()}&applied=true`;
+              const urlWithTimestamp = sandboxData.url + "?t=" + Date.now() + "&applied=true";
               iframeRef.current.src = urlWithTimestamp;
               
               // Method 2: Force reload after a short delay
@@ -869,7 +882,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               
               // Method 1: Try direct navigation first
               try {
-                const urlWithTimestamp = `${sandboxData.url}?t=${Date.now()}&force=true`;
+                const urlWithTimestamp = sandboxData.url + "?t=" + Date.now() + "&force=true";
                 console.log('[applyGeneratedCode] Attempting direct navigation to:', urlWithTimestamp);
                 
                 // Remove any existing onload handler
@@ -915,7 +928,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               iframeRef.current.remove();
               
               // Add new iframe
-              newIframe.src = `${sandboxData.url}?t=${Date.now()}&recreated=true`;
+              newIframe.src = sandboxData.url + "?t=" + Date.now() + "&recreated=true";
               parent?.appendChild(newIframe);
               
               // Update ref
@@ -988,7 +1001,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           // Refresh the iframe after a short delay
           setTimeout(() => {
             if (iframeRef.current && sandboxData?.url) {
-              iframeRef.current.src = `${sandboxData.url}?t=${Date.now()}`;
+              iframeRef.current.src = sandboxData.url + "?t=" + Date.now();
             }
           }, 2000);
         } else {
@@ -1084,8 +1097,17 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                         });
                       });
                       
-                      return Object.entries(fileTree).map(([dir, files]) => (
-                        <div key={dir} className="mb-1">
+                      const fileTreeEntries = Object.entries(fileTree);
+                      
+                      // DIAGNOSTIC: Log keys to find empty string duplicates
+                      if (process.env.NODE_ENV === 'development') {
+                        const dirKeys = fileTreeEntries.map(([dir]) => dir);
+                        logRenderKeys(fileTreeEntries, ([dir]) => dir, 'fileTree directories');
+                        console.log('[KeyDebug] fileTree entries:', fileTreeEntries.map(([dir, files]) => ({ dir, fileCount: files.length })));
+                      }
+                      
+                      return fileTreeEntries.map(([dir, files]) => (
+                        <div key={globalKeyFix(`dir-${dir || 'unknown'}`)} className="mb-1">
                           {dir && (
                             <div 
                               className="flex items-center gap-1 py-1 px-2 hover:bg-gray-100 rounded cursor-pointer text-gray-700"
@@ -1106,13 +1128,18 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                           )}
                           {(!dir || expandedFolders.has(dir)) && (
                             <div className={dir ? 'ml-6' : ''}>
-                              {files.sort((a, b) => a.name.localeCompare(b.name)).map(fileInfo => {
+                              {files.sort((a, b) => a.name.localeCompare(b.name)).map((fileInfo, fileIndex) => {
                                 const fullPath = dir ? `${dir}/${fileInfo.name}` : fileInfo.name;
                                 const isSelected = selectedFile === fullPath;
                                 
+                                // DIAGNOSTIC: Log file keys
+                                if (process.env.NODE_ENV === 'development' && fileIndex < 3) {
+                                  console.log(`[KeyDebug] file key for ${fileInfo.name}:`, fullPath);
+                                }
+                                
                                 return (
                                   <div 
-                                    key={fullPath} 
+                                    key={globalKeyFix(`file-${fullPath || `unknown-${fileIndex}`}`)} 
                                     className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer transition-all ${
                                       isSelected 
                                         ? 'bg-blue-500 text-white' 
@@ -1308,8 +1335,15 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                     )}
                     
                     {/* Show completed files */}
-                    {generationProgress.files.map((file, idx) => (
-                      <div key={idx} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    {(() => {
+                      // DIAGNOSTIC: Log generation progress file keys
+                      if (process.env.NODE_ENV === 'development') {
+                        const fileKeys = generationProgress.files.map((file, idx) => `gen-progress-${idx || Math.random()}`);
+                        logRenderKeys(generationProgress.files, (file, idx) => `gen-progress-${idx || Math.random()}`, 'generation progress files');
+                      }
+                      
+                      return generationProgress.files.map((file, idx) => (
+                        <div key={globalKeyFix(`gen-progress-${idx}`)} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                         <div className="px-4 py-2 bg-[#36322F] text-white flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="text-green-500">✓</span>
@@ -1346,7 +1380,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                           </SyntaxHighlighter>
                         </div>
                       </div>
-                    ))}
+                    ));
+                    })()}
                     
                     {/* Show remaining raw stream if there's content after the last file */}
                     {!generationProgress.currentFile && generationProgress.streamedCode.length > 0 && (
@@ -1472,7 +1507,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               onClick={() => {
                 if (iframeRef.current && sandboxData?.url) {
                   console.log('[Manual Refresh] Forcing iframe reload...');
-                  const newSrc = `${sandboxData.url}?t=${Date.now()}&manual=true`;
+                  const newSrc = sandboxData.url + "?t=" + Date.now() + "&manual=true";
                   iframeRef.current.src = newSrc;
                 }
               }}
@@ -3174,7 +3209,7 @@ Focus on the key sections and content, making it clean and modern.`;
                           { name: 'Monochrome', description: 'Black and white' }
                         ].map((style) => (
                           <button
-                            key={style.name}
+                            key={globalKeyFix(`style-${style.name || 'unknown'}`)}
                             type="button"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
@@ -3266,7 +3301,7 @@ Focus on the key sections and content, making it clean and modern.`;
                               'A fitness app landing page with workout plans, progress tracking, and user testimonials'
                             ].map((example, index) => (
                               <button
-                                key={index}
+                                key={globalKeyFix(`example-${index}`)}
                                 type="button"
                                 onClick={() => setDescriptionInput(example)}
                                 className="text-left p-3 text-sm text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors duration-200"
@@ -3301,7 +3336,7 @@ Focus on the key sections and content, making it clean and modern.`;
                   }}
                 >
                   {appConfig.ai.availableModels.map(model => (
-                    <option key={model} value={model}>
+                    <option key={globalKeyFix(`model-${model || 'unknown'}`)} value={model}>
                       {(appConfig.ai.modelDisplayNames as any)[model] || model}
                     </option>
                   ))}
@@ -3369,11 +3404,18 @@ Focus on the key sections and content, making it clean and modern.`;
             }}
             className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
           >
-            {appConfig.ai.availableModels.map(model => (
-              <option key={model} value={model}>
-                {(appConfig.ai.modelDisplayNames as any)[model] || model}
-              </option>
-            ))}
+            {(() => {
+              // DIAGNOSTIC: Log model keys
+              if (process.env.NODE_ENV === 'development') {
+                logRenderKeys(appConfig.ai.availableModels, (model) => model || `model-${Math.random()}`, 'AI models');
+              }
+              
+              return appConfig.ai.availableModels.map((model, modelIndex) => (
+                <option key={globalKeyFix(`model-${model || `unknown-${modelIndex}`}`)} value={model}>
+                  {(appConfig.ai.modelDisplayNames as any)[model] || model}
+                </option>
+              ));
+            })()}
           </select>
           <Button
             variant="outline"
@@ -3420,21 +3462,27 @@ Focus on the key sections and content, making it clean and modern.`;
           {conversationContext.scrapedWebsites.length > 0 && (
             <div className="p-4 bg-card">
               <div className="flex flex-col gap-2">
-                {conversationContext.scrapedWebsites.map((site, idx) => {
-                  // Extract favicon and site info from the scraped data
-                  const metadata = site.content?.metadata || {};
-                  const sourceURL = metadata.sourceURL || site.url;
-                  const favicon = metadata.favicon || `https://www.google.com/s2/favicons?domain=${new URL(sourceURL).hostname}&sz=32`;
-                  const siteName = metadata.ogSiteName || metadata.title || new URL(sourceURL).hostname;
+                {(() => {
+                  // DIAGNOSTIC: Log scraped websites keys
+                  if (process.env.NODE_ENV === 'development') {
+                    logRenderKeys(conversationContext.scrapedWebsites, (site, idx) => `scraped-site-${idx || Math.random()}`, 'scraped websites');
+                  }
                   
-                  return (
-                    <div key={idx} className="flex items-center gap-2 text-sm">
+                  return conversationContext.scrapedWebsites.map((site, idx) => {
+                    // Extract favicon and site info from the scraped data
+                    const metadata = site.content?.metadata || {};
+                    const sourceURL = metadata.sourceURL || site.url;
+                    const favicon = metadata.favicon || "https://www.google.com/s2/favicons?domain=" + new URL(sourceURL).hostname + "&sz=32";
+                    const siteName = metadata.ogSiteName || metadata.title || new URL(sourceURL).hostname;
+                    
+                    return (
+                      <div key={globalKeyFix(`scraped-site-${idx}`)} className="flex items-center gap-2 text-sm">
                       <img 
                         src={favicon} 
                         alt={siteName}
                         className="w-4 h-4 rounded"
                         onError={(e) => {
-                          e.currentTarget.src = `https://www.google.com/s2/favicons?domain=${new URL(sourceURL).hostname}&sz=32`;
+                          e.currentTarget.src = "https://www.google.com/s2/favicons?domain=" + new URL(sourceURL).hostname + "&sz=32";
                         }}
                       />
                       <a 
@@ -3448,23 +3496,30 @@ Focus on the key sections and content, making it clean and modern.`;
                       </a>
                     </div>
                   );
-                })}
+                });
+                })()}
               </div>
             </div>
           )}
 
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-1 scrollbar-hide" ref={chatMessagesRef}>
-            {chatMessages.map((msg, idx) => {
-              // Check if this message is from a successful generation
-              const isGenerationComplete = msg.content.includes('Successfully recreated') || 
-                                         msg.content.includes('AI recreation generated!') ||
-                                         msg.content.includes('Code generated!');
+            {(() => {
+              // DIAGNOSTIC: Log chat message keys
+              if (process.env.NODE_ENV === 'development') {
+                logRenderKeys(chatMessages, (msg, idx) => `chat-msg-${idx || Math.random()}`, 'chat messages');
+              }
               
-              // Get the files from metadata if this is a completion message
-              const completedFiles = msg.metadata?.appliedFiles || [];
-              
-              return (
-                <div key={idx} className="block">
+              return chatMessages.map((msg, idx) => {
+                // Check if this message is from a successful generation
+                const isGenerationComplete = msg.content.includes('Successfully recreated') || 
+                                           msg.content.includes('AI recreation generated!') ||
+                                           msg.content.includes('Code generated!');
+                
+                // Get the files from metadata if this is a completion message
+                const completedFiles = msg.metadata?.appliedFiles || [];
+                
+                return (
+                  <div key={globalKeyFix(`chat-msg-${idx}`)} className="block">
                   <div className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'} mb-1`}>
                     <div className="block">
                       <div className={`block rounded-[10px] px-4 py-2 ${
@@ -3523,16 +3578,16 @@ Focus on the key sections and content, making it clean and modern.`;
                           
                           return (
                             <div
-                              key={`applied-${fileIdx}`}
+                              key={globalKeyFix(`applied-${fileIdx}`)}
                               className="inline-flex items-center gap-1 px-2 py-1 bg-[#36322F] text-white rounded-[10px] text-xs animate-fade-in-up"
-                              style={{ animationDelay: `${fileIdx * 30}ms` }}
+                              style={{ animationDelay: fileIdx * 30 + "ms" }}
                             >
-                              <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                              <span className={"inline-block w-1.5 h-1.5 rounded-full " + (
                                 fileType === 'css' ? 'bg-blue-400' :
                                 fileType === 'javascript' ? 'bg-yellow-400' :
                                 fileType === 'json' ? 'bg-green-400' :
                                 'bg-gray-400'
-                              }`} />
+                              )} ></span>
                               {fileName}
                             </div>
                           );
@@ -3548,16 +3603,16 @@ Focus on the key sections and content, making it clean and modern.`;
                       <div className="flex flex-wrap items-start gap-1">
                         {generationProgress.files.map((file, fileIdx) => (
                           <div
-                            key={`complete-${fileIdx}`}
+                            key={globalKeyFix(`complete-${fileIdx}`)}
                             className="inline-flex items-center gap-1 px-2 py-1 bg-[#36322F] text-white rounded-[10px] text-xs animate-fade-in-up"
-                            style={{ animationDelay: `${fileIdx * 30}ms` }}
+                            style={{ animationDelay: fileIdx * 30 + "ms" }}
                           >
-                            <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                            <span className={"inline-block w-1.5 h-1.5 rounded-full " + (
                               file.type === 'css' ? 'bg-blue-400' :
                               file.type === 'javascript' ? 'bg-yellow-400' :
                               file.type === 'json' ? 'bg-green-400' :
                               'bg-gray-400'
-                            }`} />
+                            )} ></span>
                             {file.path.split('/').pop()}
                           </div>
                         ))}
@@ -3568,7 +3623,8 @@ Focus on the key sections and content, making it clean and modern.`;
                     </div>
                   </div>
               );
-            })}
+            });
+            })()}
             
             {/* Code application progress */}
             {codeApplicationState.stage && (
@@ -3589,9 +3645,9 @@ Focus on the key sections and content, making it clean and modern.`;
                   {/* Show completed files */}
                   {generationProgress.files.map((file, idx) => (
                     <div
-                      key={`file-${idx}`}
+                      key={globalKeyFix(`file-${idx}`)}
                       className="inline-flex items-center gap-1 px-2 py-1 bg-[#36322F] text-white rounded-[10px] text-xs animate-fade-in-up"
-                      style={{ animationDelay: `${idx * 30}ms` }}
+                      style={{ animationDelay: idx * 30 + "ms" }}
                     >
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />

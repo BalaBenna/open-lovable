@@ -291,7 +291,7 @@ const AutoErrorCorrection: React.FC<AutoErrorCorrectionProps> = ({
           <div className="space-y-2">
             {errors.map((error) => (
               <div
-                key={error.id}
+                key={error.id || error.message || `error-${Math.random()}`}
                 className={`p-3 rounded-lg border ${
                   error.autoFixable
                     ? 'bg-yellow-50 border-yellow-200'

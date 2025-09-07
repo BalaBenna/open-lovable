@@ -251,7 +251,7 @@ const DeploymentOptions: React.FC<DeploymentOptionsProps> = ({
               <div className="space-y-3">
                 {deploymentProviders.map(provider => (
                   <motion.div
-                    key={provider.id}
+                    key={provider.id || provider.name || `provider-${Math.random()}`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
@@ -313,7 +313,7 @@ const DeploymentOptions: React.FC<DeploymentOptionsProps> = ({
                   <h4 className="font-medium text-gray-900 mb-3">Features Included</h4>
                   <div className="grid grid-cols-1 gap-2">
                     {selectedProvider.features.map((feature, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm text-gray-700">
+                      <div key={"feature-" + (index || Math.random())} className="flex items-center gap-2 text-sm text-gray-700">
                         <CheckCircle className="w-4 h-4 text-green-500" />
                         <span>{feature}</span>
                       </div>
@@ -390,7 +390,7 @@ const DeploymentOptions: React.FC<DeploymentOptionsProps> = ({
                     </div>
                     <div className="space-y-2">
                       {deploymentConfig.envVars.map((env, index) => (
-                        <div key={index} className="flex gap-2">
+                        <div key={"env-" + (index || Math.random())} className="flex gap-2">
                           <input
                             type="text"
                             placeholder="KEY"

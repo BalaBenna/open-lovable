@@ -110,7 +110,7 @@ const CodeApplicationProgress: React.FC<CodeApplicationProgressProps> = ({
         <div className="space-y-3">
           {steps.map((step, index) => (
             <motion.div
-              key={step.id}
+              key={step.id || `step-${index}-${Math.random()}`}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}

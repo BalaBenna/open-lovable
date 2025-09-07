@@ -20,6 +20,8 @@ export default function SandboxPreview({
 }: SandboxPreviewProps) {
   const [showConsole, setShowConsole] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
+  const [iframeError, setIframeError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Validate port number - ensure it's a valid number
   const isValidPort = typeof port === 'number' && !isNaN(port) && port > 0 && port < 65536;
@@ -35,6 +37,13 @@ export default function SandboxPreview({
   // Use fallback URL if original URL is empty or invalid
   const finalUrl = previewUrl || fallbackUrl;
 
+  // Additional fallback for localhost development
+  const localhostFallback = process.env.NODE_ENV === 'development' && !finalUrl ?
+    `http://localhost:${port || 5173}` : null;
+
+  // Final URL with all fallbacks
+  const displayUrl = localhostFallback || finalUrl;
+
   // Debug logging
   console.log('SandboxPreview Debug:', {
     sandboxId,
@@ -44,11 +53,29 @@ export default function SandboxPreview({
     propPreviewUrl,
     generatedPreviewUrl: generatedUrl,
     fallbackUrl,
-    finalUrl
+    finalUrl,
+    localhostFallback,
+    displayUrl
   });
 
   const handleRefresh = () => {
     setIframeKey(prev => prev + 1);
+    setIframeError(null);
+    setRetryCount(0);
+  };
+
+  const handleIframeError = () => {
+    console.error('Iframe failed to load:', displayUrl);
+    setIframeError('Failed to load preview. The server may not be ready yet.');
+
+    // Auto-retry up to 3 times with increasing delays
+    if (retryCount < 3) {
+      setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        setIframeKey(prev => prev + 1);
+        console.log(`Retrying iframe load (attempt ${retryCount + 1})`);
+      }, (retryCount + 1) * 2000); // 2s, 4s, 6s delays
+    }
   };
 
   if (type === 'console') {
@@ -69,8 +96,8 @@ export default function SandboxPreview({
               <span className="text-sm text-gray-400">
                 {type === 'vite' ? '⚡ Vite + React + TypeScript' : type === 'nextjs' ? '▲ Next.js' : '📦 Console'} Preview
               </span>
-          <code className={`text-xs bg-gray-900 px-2 py-1 rounded ${finalUrl ? 'text-blue-400' : 'text-red-400'}`}>
-            {finalUrl || 'No preview URL available'}
+          <code className={`text-xs bg-gray-900 px-2 py-1 rounded ${displayUrl ? 'text-blue-400' : 'text-red-400'}`}>
+            {displayUrl || 'No preview URL available'}
           </code>
         </div>
         <div className="flex items-center gap-2">
@@ -89,7 +116,7 @@ export default function SandboxPreview({
             <RefreshCw className="w-4 h-4" />
           </button>
           <a
-            href={finalUrl}
+            href={displayUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 hover:bg-gray-700 rounded transition-colors"
@@ -113,17 +140,43 @@ export default function SandboxPreview({
           </div>
         )}
         
-        {finalUrl && finalUrl.trim() ? (
-          <iframe
-            key={iframeKey}
-            src={finalUrl}
-            className="w-full h-[600px] bg-white"
-            title={`${type} preview`}
-            sandbox="allow-scripts allow-same-origin allow-forms"
-            onError={(e) => {
-              console.error('Preview iframe error:', e);
-            }}
-          />
+        {displayUrl && displayUrl.trim() ? (
+          <>
+            {iframeError && (
+              <div className="absolute top-4 left-4 right-4 bg-red-900/90 text-red-100 p-3 rounded-lg z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span className="text-sm font-medium">
+                      {iframeError}
+                      {retryCount > 0 && ` (Retry ${retryCount}/3)`}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleRefresh}
+                    className="text-red-200 hover:text-white"
+                    title="Retry"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+            <iframe
+              key={iframeKey}
+              src={displayUrl}
+              className="w-full h-[600px] bg-white"
+              title={`${type} preview`}
+              sandbox="allow-scripts allow-same-origin allow-forms"
+              onError={handleIframeError}
+              onLoad={() => {
+                setIframeError(null);
+                setRetryCount(0);
+              }}
+            />
+          </>
         ) : (
           <div className="w-full h-[600px] bg-gray-100 flex items-center justify-center text-gray-500">
             <div className="text-center">

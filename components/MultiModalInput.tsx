@@ -333,7 +333,7 @@ const MultiModalInput: React.FC<MultiModalInputProps> = ({
             <div className="grid grid-cols-1 gap-4">
               {uploadedImages.map(image => (
                 <motion.div
-                  key={image.id}
+                  key={image.id || image.name || `image-${Math.random()}`}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
@@ -384,7 +384,7 @@ const MultiModalInput: React.FC<MultiModalInputProps> = ({
                               <div className="flex flex-wrap gap-1">
                                 {image.analysis.colors.map((color, idx) => (
                                   <div
-                                    key={idx}
+                                    key={"color-" + (idx || Math.random())}
                                     className="w-6 h-6 rounded border border-gray-200"
                                     style={{ backgroundColor: color }}
                                     title={color}
@@ -401,7 +401,7 @@ const MultiModalInput: React.FC<MultiModalInputProps> = ({
                               </div>
                               <div className="space-y-1">
                                 {image.analysis.components.slice(0, 3).map((component, idx) => (
-                                  <div key={idx} className="text-gray-600">• {component}</div>
+                                  <div key={"component-" + (idx || Math.random()) + "-" + (component || `component-${Math.random()}`)} className="text-gray-600">• {component}</div>
                                 ))}
                                 {image.analysis.components.length > 3 && (
                                   <div className="text-gray-500">+{image.analysis.components.length - 3} more</div>

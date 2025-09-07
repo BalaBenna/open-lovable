@@ -304,7 +304,7 @@ const ProjectTemplates: React.FC<ProjectTemplatesProps> = ({
             <div className="space-y-1">
               {categories.map(category => (
                 <button
-                  key={category.id}
+                  key={category.id || category.name || `category-${Math.random()}`}
                   onClick={() => setSelectedCategory(category.id)}
                   className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                     selectedCategory === category.id
@@ -327,7 +327,7 @@ const ProjectTemplates: React.FC<ProjectTemplatesProps> = ({
               <AnimatePresence>
                 {filteredTemplates.map((template, index) => (
                   <motion.div
-                    key={template.id}
+                    key={template.id || template.name || `template-${Math.random()}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
@@ -368,7 +368,7 @@ const ProjectTemplates: React.FC<ProjectTemplatesProps> = ({
                       <div className="flex flex-wrap gap-1">
                         {template.features.slice(0, 3).map((feature, idx) => (
                           <span
-                            key={idx}
+                            key={"feature-" + (idx || Math.random())}
                             className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded"
                           >
                             {feature}

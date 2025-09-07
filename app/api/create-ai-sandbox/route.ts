@@ -17,6 +17,18 @@ export async function POST() {
   try {
     console.log('[create-ai-sandbox] Creating base sandbox...');
     
+    // Check if E2B API key is available
+    if (!process.env.E2B_API_KEY) {
+      console.error('[create-ai-sandbox] E2B_API_KEY is not set');
+      return NextResponse.json(
+        { 
+          error: 'E2B_API_KEY environment variable is not set',
+          details: 'Please check your .env.local file and ensure E2B_API_KEY is configured'
+        },
+        { status: 500 }
+      );
+    }
+    
     // Kill existing sandbox if any
     if (global.activeSandbox) {
       console.log('[create-ai-sandbox] Killing existing sandbox...');
@@ -37,6 +49,8 @@ export async function POST() {
 
     // Create base sandbox - we'll set up Vite ourselves for full control
     console.log(`[create-ai-sandbox] Creating base E2B sandbox with ${appConfig.e2b.timeoutMinutes} minute timeout...`);
+    console.log(`[create-ai-sandbox] Using E2B API key: ${process.env.E2B_API_KEY.substring(0, 10)}...`);
+    
     sandbox = await Sandbox.create({ 
       apiKey: process.env.E2B_API_KEY,
       timeoutMs: appConfig.e2b.timeoutMs
@@ -249,9 +263,9 @@ else:
     # Continue anyway as it might still work
     `);
     
-    // Start Vite dev server
+    // Start Vite dev server with better error handling
     console.log('[create-ai-sandbox] Starting Vite dev server...');
-    await sandbox.runCode(`
+    const viteResult = await sandbox.runCode(`
 import subprocess
 import os
 import time
@@ -275,6 +289,18 @@ process = subprocess.Popen(
 
 print(f'✓ Vite dev server started with PID: {process.pid}')
 print('Waiting for server to be ready...')
+
+# Wait a bit and check if the process is still running
+time.sleep(3)
+if process.poll() is None:
+    print('✓ Vite process is running successfully')
+else:
+    print(f'⚠ Vite process exited early with code: {process.returncode}')
+    # Try to get error output
+    if process.stderr:
+        error_output = process.stderr.read().decode('utf-8', errors='ignore')
+        if error_output:
+            print(f'Vite error output: {error_output}')
     `);
     
     // Wait for Vite to be fully ready

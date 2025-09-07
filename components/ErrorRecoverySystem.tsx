@@ -395,7 +395,7 @@ const ErrorRecoverySystem: React.FC<ErrorRecoverySystemProps> = ({
                 >
                   {strategies.map(strategy => (
                     <div
-                      key={strategy.id}
+                      key={strategy.id || strategy.name || `strategy-${Math.random()}`}
                       className={`border rounded-lg p-3 cursor-pointer transition-all ${
                         selectedStrategy === strategy.id
                           ? 'border-blue-500 bg-blue-50'
@@ -461,7 +461,7 @@ const ErrorRecoverySystem: React.FC<ErrorRecoverySystemProps> = ({
                   className="space-y-2"
                 >
                   {retryHistory.map((attempt, index) => (
-                    <div key={index} className="flex items-center gap-3 text-sm">
+                    <div key={"error-" + (index || Math.random())} className="flex items-center gap-3 text-sm">
                       {attempt.success ? (
                         <CheckCircle className="w-4 h-4 text-green-500" />
                       ) : (

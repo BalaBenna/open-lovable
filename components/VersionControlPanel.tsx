@@ -324,7 +324,7 @@ const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
               { id: 'changes', label: 'Changes', icon: FileText }
             ].map(tab => (
               <button
-                key={tab.id}
+                key={tab.id || `tab-${Math.random()}`}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === tab.id
@@ -357,7 +357,7 @@ const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {filteredCommits.map(commit => (
                 <motion.div
-                  key={commit.id}
+                  key={commit.id || commit.hash || `commit-${Math.random()}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`border rounded-lg p-4 cursor-pointer transition-all ${
@@ -401,7 +401,7 @@ const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
                         <div className="flex flex-wrap gap-1 mb-3">
                           {commit.tags.map(tag => (
                             <span
-                              key={tag}
+                              key={tag || `tag-${Math.random()}`}
                               className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full flex items-center gap-1"
                             >
                               <Tag className="w-2 h-2" />
@@ -414,7 +414,7 @@ const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
                       {/* Files */}
                       <div className="space-y-1">
                         {commit.files.map((file, index) => (
-                          <div key={index} className="flex items-center gap-2 text-sm">
+                          <div key={"vc-" + (index || Math.random())} className="flex items-center gap-2 text-sm">
                             {getFileIcon(file.path)}
                             <span className="text-gray-700">{file.path}</span>
                             <span className={`px-1.5 py-0.5 rounded text-xs ${getStatusColor(file.status)}`}>
@@ -459,7 +459,7 @@ const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
             <div className="space-y-3">
               {branches.map(branch => (
                 <div
-                  key={branch.name}
+                  key={branch.name || `branch-${Math.random()}`}
                   className={`border rounded-lg p-4 ${
                     branch.current ? 'border-green-500 bg-green-50' : 'border-gray-200'
                   }`}
@@ -519,7 +519,7 @@ const VersionControlPanel: React.FC<VersionControlPanelProps> = ({
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {currentFiles.map(file => (
                 <div
-                  key={file.path}
+                  key={file.path || file.name || `file-${Math.random()}`}
                   className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all ${
                     selectedFiles.has(file.path)
                       ? 'border-blue-500 bg-blue-50'

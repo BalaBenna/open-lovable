@@ -130,7 +130,7 @@ const RealtimeCodeEditor: React.FC<RealtimeCodeEditorProps> = ({
           <AnimatePresence>
             {generatedFiles.map((file, index) => (
               <motion.div
-                key={file.path}
+                key={file.path || file.name || `file-${index}-${Math.random()}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
