@@ -32,25 +32,11 @@ export default function SandboxPreview({
   // Validate port number - ensure it's a valid number
   const isValidPort = typeof port === 'number' && !isNaN(port) && port > 0 && port < 65536;
 
-  // Use the passed previewUrl or generate one if not provided
+  // Use the passed previewUrl or generate one if not provided (no blob/localhost fallbacks)
   const generatedUrl = (sandboxId && type !== 'console' && isValidPort ? `https://${sandboxId}-${port}.e2b.dev` : '');
-  const previewUrl = propPreviewUrl || generatedUrl;
+  const displayUrl = propPreviewUrl || generatedUrl;
 
-  // Fallback URL if port is invalid but we have a sandboxId
-  const fallbackUrl = (!isValidPort && sandboxId && type !== 'console') ?
-    `https://${sandboxId}-5173.e2b.dev` : previewUrl;
-
-  // Use fallback URL if original URL is empty or invalid
-  const finalUrl = previewUrl || fallbackUrl;
-
-  // Additional fallback for localhost development
-  const localhostFallback = process.env.NODE_ENV === 'development' && !finalUrl ?
-    `http://localhost:${port || 5173}` : null;
-
-  // Final URL with all fallbacks
-  const displayUrl = localhostFallback || finalUrl;
-
-  // Debug logging
+  // Debug logging (keep concise and only defined vars)
   console.log('SandboxPreview Debug:', {
     sandboxId,
     port,
@@ -58,9 +44,6 @@ export default function SandboxPreview({
     isValidPort,
     propPreviewUrl,
     generatedPreviewUrl: generatedUrl,
-    fallbackUrl,
-    finalUrl,
-    localhostFallback,
     displayUrl
   });
 
@@ -159,22 +142,7 @@ export default function SandboxPreview({
               }}
             />
           </>
-        ) : (
-          <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              {!isValidPort ? (
-                <p className="text-sm text-red-500">Invalid sandbox port configuration</p>
-              ) : (
-                <p className="text-sm">Preview will appear here after code generation</p>
-              )}
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
 
     </div>

@@ -21,7 +21,8 @@ import {
   Globe,
   Zap,
   ShoppingCart,
-  User
+  User,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RealtimeCodeEditor from './RealtimeCodeEditor';
@@ -31,6 +32,7 @@ import DeploymentOptions from './DeploymentOptions';
 import PreviewControls from './PreviewControls';
 import ErrorRecoverySystem from './ErrorRecoverySystem';
 import VersionControlPanel from './VersionControlPanel';
+import IssueDetection from './IssueDetection';
 
 // Custom Chat Input Component
 interface CustomChatInputProps {
@@ -515,7 +517,7 @@ const SettingsModal: React.FC<{
                           // Close settings modal
                           onClose();
                         }}
-                        disabled={generatedFiles.length === 0}
+                        disabled={false}
                         className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                       >
                         <GitBranch className="w-4 h-4" />
@@ -598,7 +600,7 @@ const LovableInterface: React.FC = () => {
     
     // Analyze the user's request to understand what they want
     let projectType = 'web application';
-    let keyFeatures = [];
+    let keyFeatures: string[] = [];
     let designStyle = 'modern';
     let colorScheme = 'blue and purple gradient';
     
@@ -689,6 +691,10 @@ The code is being generated now and will appear in the editor. You'll see each f
   const [viewMode, setViewMode] = useState<'code' | 'preview'>('code'); // Toggle between code and preview
   const [codeErrors, setCodeErrors] = useState<any[]>([]);
   const [showSiteAnalyzer, setShowSiteAnalyzer] = useState(false);
+  
+  // Issue Detection State
+  const [detectedIssues, setDetectedIssues] = useState<any[]>([]);
+  const [showIssueDetection, setShowIssueDetection] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom of messages
@@ -696,6 +702,72 @@ The code is being generated now and will appear in the editor. You'll see each f
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Issue Detection Functions
+  const detectIssues = () => {
+    // Simulate issue detection - in a real app, this would analyze the code
+    const mockIssues = [
+      {
+        id: 'issue-1',
+        type: 'import',
+        line: 1,
+        status: 'detected',
+        description: 'Missing React useState import',
+        suggestedFix: "import { useState } from 'react';",
+        file: 'src/App.tsx'
+      },
+      {
+        id: 'issue-2',
+        type: 'import',
+        line: 13,
+        status: 'detected',
+        description: 'Missing React useState import',
+        suggestedFix: "import { useState } from 'react';",
+        file: 'src/components/TodoList.tsx'
+      }
+    ];
+    
+    setDetectedIssues(mockIssues);
+    setShowIssueDetection(true);
+  };
+
+  const handleAskToFix = (issue: any) => {
+    // Create a detailed error message for the AI
+    const errorMessage = `I found an issue in my code that needs to be fixed:
+
+**Issue Details:**
+- Type: ${issue.type}
+- Location: Line ${issue.line} in ${issue.file || 'unknown file'}
+- Description: ${issue.description}
+- Suggested Fix: ${issue.suggestedFix}
+
+Please fix this issue by applying the suggested fix or providing an alternative solution.`;
+
+    // Auto-submit to chat
+    setInputValue(errorMessage);
+    
+    // Mark issue as pending
+    setDetectedIssues(prev => 
+      prev.map(i => 
+        i.id === issue.id 
+          ? { ...i, status: 'pending' }
+          : i
+      )
+    );
+    
+    // Auto-submit after a short delay to ensure the input is set
+    setTimeout(() => {
+      const formEvent = new Event('submit') as any;
+      formEvent.preventDefault = () => {};
+      handleSendMessage();
+    }, 100);
+  };
+
+  const handleDismissIssue = (issueId: string) => {
+    setDetectedIssues(prev => prev.filter(issue => issue.id !== issueId));
+    if (detectedIssues.length === 1) {
+      setShowIssueDetection(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isGenerating) return;
@@ -722,8 +794,8 @@ The code is being generated now and will appear in the editor. You'll see each f
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      // Simulate AI response and file generation
-      await simulateCodeGeneration(userMessage.content);
+      // Use streaming AI code generation instead of simulation
+      await startStreamingGeneration(userMessage.content);
     } catch (error) {
       console.error('Error generating code:', error);
       setMessages(prev => prev.map(msg => 
@@ -734,6 +806,236 @@ The code is being generated now and will appear in the editor. You'll see each f
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Streaming code generation via backend API
+  const startStreamingGeneration = async (prompt: string) => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    // Reset file list for this run (reuse sandbox, do not recreate)
+    setGeneratedFiles([]);
+
+    // Helper to append/replace a file in state
+    const upsertFile = (path: string, content: string, language: string) => {
+      setGeneratedFiles(prev => {
+        const idx = prev.findIndex(f => f.path === path);
+        const file: GeneratedFile = {
+          path,
+          content,
+          language: language as any,
+          status: 'generating'
+        };
+        if (idx >= 0) {
+          const copy = prev.slice();
+          copy[idx] = file;
+          return copy;
+        }
+        return [...prev, file];
+      });
+    };
+
+    // Ensure an E2B sandbox exists before we start streaming so preview can work
+    if (!sandboxId) {
+      try {
+        const sandboxResponse = await fetch('/api/create-ai-sandbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (sandboxResponse.ok) {
+          const data = await sandboxResponse.json();
+          if (data?.sandboxId) setSandboxId(data.sandboxId);
+          if (data?.url) setPreviewUrl(data.url);
+        }
+      } catch (_e) {
+        // Non-fatal
+      }
+    }
+
+    // Stream from backend (SSE JSON events)
+    const res = await fetch('/api/generate-ai-code-stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        model: selectedModel,
+        context: { sandboxId },
+        isEdit: false
+      }),
+      signal
+    });
+
+    if (!res.ok || !res.body) {
+      throw new Error('Failed to start streaming generation');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let sseBuffer = '';
+
+    // Update assistant placeholder text minimally
+    setMessages(prev => prev.map(m => m.isGenerating ? { ...m, content: 'Generating code…' } : m));
+
+    // Helpers to parse <file> tags across streamed chunks
+    const fileOpen = /<file\s+path="([^"]+)">/i;
+    const fileClose = /<\/file>/i;
+    let tagBuffer = '';
+    let currentPath: string | null = null;
+    let currentContent = '';
+
+    const processTextChunk = (text: string) => {
+      tagBuffer += text;
+      while (tagBuffer.length) {
+        if (currentPath === null) {
+          const openMatch = tagBuffer.match(fileOpen);
+          if (!openMatch) break;
+          const idx = (openMatch.index || 0) + openMatch[0].length;
+          currentPath = openMatch[1];
+          tagBuffer = tagBuffer.slice(idx);
+          currentContent = '';
+        } else {
+          const closeMatch = tagBuffer.match(fileClose);
+          if (!closeMatch) {
+            // Need more data for this file
+            currentContent += tagBuffer;
+            tagBuffer = '';
+            break;
+          }
+          const idx = closeMatch.index || 0;
+          currentContent += tagBuffer.slice(0, idx);
+          tagBuffer = tagBuffer.slice(idx + closeMatch[0].length);
+          const ext = (currentPath.split('.').pop() || '').toLowerCase();
+          const language = ext === 'tsx' || ext === 'ts' ? 'tsx' : (ext === 'jsx' ? 'jsx' : (ext === 'css' ? 'css' : 'text'));
+          upsertFile(currentPath, currentContent, language);
+          currentPath = null;
+          currentContent = '';
+        }
+      }
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      sseBuffer += decoder.decode(value, { stream: true });
+
+      // Process complete SSE events (separated by blank lines)
+      let sepIndex = sseBuffer.indexOf('\n\n');
+      while (sepIndex !== -1) {
+        const eventChunk = sseBuffer.slice(0, sepIndex);
+        sseBuffer = sseBuffer.slice(sepIndex + 2);
+        sepIndex = sseBuffer.indexOf('\n\n');
+
+        const dataLine = eventChunk.split('\n').find(l => l.startsWith('data: '));
+        if (!dataLine) continue;
+        const jsonStr = dataLine.slice(6);
+        let evt: any;
+        try { evt = JSON.parse(jsonStr); } catch { continue; }
+
+        if (evt?.type === 'stream' && typeof evt.text === 'string') {
+          processTextChunk(evt.text);
+        }
+        if (evt?.type === 'complete') {
+          // Final parse of the full response to ensure completeness
+          const generatedCode = String(evt.generatedCode || '');
+          const fileRegex = /<file path="([^"]+)">([\s\S]*?)<\/file>/g;
+          const finalFiles: GeneratedFile[] = [];
+          let m: RegExpExecArray | null;
+          while ((m = fileRegex.exec(generatedCode)) !== null) {
+            const p = m[1];
+            const c = m[2];
+            const ext = (p.split('.').pop() || '').toLowerCase();
+            const language = ext === 'tsx' || ext === 'ts' ? 'tsx' : (ext === 'jsx' ? 'jsx' : (ext === 'css' ? 'css' : 'text'));
+            finalFiles.push({ path: p, content: c, language: language as any, status: 'complete' });
+          }
+          if (finalFiles.length > 0) {
+            setGeneratedFiles(finalFiles);
+          }
+
+          // Apply files directly from generated response for accuracy
+          try {
+            const applyResponse = await fetch('/api/apply-ai-code', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ response: generatedCode, isEdit: false, packages: evt.packagesToInstall || [] })
+            });
+            if (!applyResponse.ok) {
+              console.error('Apply to sandbox failed');
+            }
+          } catch (e) {
+            console.error('Sandbox apply error:', e);
+          }
+
+          // Switch to real sandbox URL and show loading until ready
+          setIsPreviewLoading(true);
+          await pollSandboxUntilReady();
+          setIsPreviewLoading(false);
+        }
+      }
+    }
+
+    // Mark files as complete
+    setGeneratedFiles(prev => prev.map(f => ({ ...f, status: 'complete' })));
+
+    // Apply to sandbox and refresh preview using existing flow
+    try {
+      // Reuse existing apply flow by creating a mock response from current state
+      const payload = generateMockAIResponse(
+        (function(files) { return files; })(
+          (await (async () => {
+            // capture latest
+            let latest: GeneratedFile[] = [];
+            setGeneratedFiles(prev => (latest = prev, prev));
+            return latest;
+          })())
+        )
+      );
+
+      const applyResponse = await fetch('/api/apply-ai-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: payload, isEdit: false, packages: [] })
+      });
+      if (!applyResponse.ok) {
+        console.error('Apply to sandbox failed');
+      }
+    } catch (e) {
+      console.error('Sandbox apply error:', e);
+    }
+
+    // Only prefer real sandbox; keep loading state until it's ready
+    setIsPreviewLoading(true);
+    await pollSandboxUntilReady();
+    setIsPreviewLoading(false);
+
+    // Finalize assistant message
+    setMessages(prev => prev.map(m => m.isGenerating ? { ...m, isGenerating: false } : m));
+    setIsGenerating(false);
+  };
+
+  // Poll sandbox status and switch preview to real URL when ready
+  const pollSandboxUntilReady = async (maxAttempts: number = 8, delayMs: number = 1000): Promise<boolean> => {
+    try {
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          const statusRes = await fetch('/api/sandbox-status');
+          if (statusRes.ok) {
+            const data = await statusRes.json();
+            const url: string | undefined = data?.sandboxData?.url;
+            if (url && (url.includes('e2b.dev') || url.includes('e2b.app'))) {
+              setPreviewUrl(url);
+              setViewMode('preview');
+              return true;
+            }
+          }
+        } catch (_e) {
+          // ignore and retry
+        }
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    } catch (_e) {
+      // ignore
+    }
+    return false;
   };
 
   const generateMockAIResponse = (files: GeneratedFile[]) => {
@@ -950,10 +1252,16 @@ The code is being generated now and will appear in the editor. You'll see each f
         if (sandboxResponse.ok) {
           const sandboxData = await sandboxResponse.json();
           console.log('Sandbox created successfully:', sandboxData);
+          if (sandboxData.sandboxId) {
           setSandboxId(sandboxData.sandboxId);
+          }
+          if (sandboxData.url) {
           setPreviewUrl(sandboxData.url);
+            console.log('Sandbox URL set:', sandboxData.url);
+          }
         } else {
-          console.error('Failed to create sandbox');
+          const errorText = await sandboxResponse.text();
+          console.error('Failed to create sandbox:', errorText);
           // Don't throw error, continue with fallback
         }
       } catch (error) {
@@ -1016,34 +1324,8 @@ The code is being generated now and will appear in the editor. You'll see each f
 
     await processSteps();
 
-    // Generate detailed response with insights
-    const insights = generateAIInsights(prompt, operation);
-    const detailedResponse = `Perfect! I've analyzed your request and here's what I'm creating for you:
-
-${insights}
-
-🎯 **Project Analysis**
-I understand you want to build a ${operation === 'generate' ? 'new application' : 'modification to your existing app'}. Let me break down what I'm implementing:
-
-🏗️ **Architecture Planning** 
-- Component structure optimized for maintainability
-- Responsive design with mobile-first approach  
-- Performance optimizations built-in
-- Clean, semantic code following React best practices
-
-🎨 **Design System**
-- Modern color palette with consistent theming
-- Typography scale for perfect readability
-- Smooth animations and micro-interactions
-- Accessibility features included
-
-⚡ **Implementation Details**
-- Using React 19 with latest features
-- Tailwind CSS for styling
-- TypeScript for type safety
-- Optimized bundle size and loading performance
-
-The code is being generated now and will appear in the editor. You'll see each file as it's created!`;
+    // Concise assistant message only (no verbose analysis)
+    const detailedResponse = 'Generating code and updating the editor and preview...';
     
     // Code generation functions for different project types
     const generateTodoApp = (): GeneratedFile[] => [
@@ -1462,6 +1744,8 @@ export default App;`,
       // Apply generated files to the sandbox
       try {
         console.log('Applying generated files to sandbox...');
+        console.log('Generated files:', allFiles.map(f => ({ path: f.path, contentLength: f.content.length })));
+        
         const applyResponse = await fetch('/api/apply-ai-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1474,15 +1758,34 @@ export default App;`,
 
         if (applyResponse.ok) {
           const applyResult = await applyResponse.json();
-          console.log('Files applied successfully:', applyResult);
+          console.log('Files applied successfully to sandbox:', applyResult);
+          
+          // Wait a bit for the sandbox to process the files
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Try to get the actual sandbox URL
+          try {
+            const statusResponse = await fetch('/api/sandbox-status');
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              console.log('Sandbox status:', statusData);
+              if (statusData.url) {
+                setPreviewUrl(statusData.url);
+                console.log('Updated preview URL to sandbox:', statusData.url);
+              }
+            }
+          } catch (statusError) {
+            console.error('Error getting sandbox status:', statusError);
+          }
         } else {
-          console.error('Failed to apply files to sandbox');
+          const errorText = await applyResponse.text();
+          console.error('Failed to apply files to sandbox:', errorText);
         }
       } catch (error) {
         console.error('Error applying files:', error);
       }
 
-      // Create sandbox preview without loading state changes that cause blinking
+      // Create sandbox preview - this will use the sandbox URL if available, otherwise fallback
       await createSandboxPreviewOptimized();
       
       // Update file status after preview is ready to minimize blinking
@@ -1563,38 +1866,64 @@ export default App;`,
   // Optimized version that doesn't cause blinking
   const createSandboxPreviewOptimized = async () => {
     try {
+      // Check if we already have a sandbox URL from the API
+      if (previewUrl && (previewUrl.includes('e2b.dev') || previewUrl.includes('e2b.app'))) {
+        console.log('Using existing sandbox URL:', previewUrl);
+        setViewMode('preview');
+        return;
+      }
+
       // Generate a unique sandbox ID
       const newSandboxId = `lovable-${Date.now()}`;
 
       // Set up preview configuration for Vite stack (batch all state updates)
       const newPort = 5173;
-      const previewUrl = `https://${newSandboxId}-${newPort}.e2b.dev`;
+      const sandboxUrl = `https://${newSandboxId}-${newPort}.e2b.dev`;
       
       // Batch all state updates to prevent blinking
       setSandboxId(newSandboxId);
       setPreviewType('vite');
       setPreviewPort(newPort);
-      setPreviewUrl(previewUrl);
 
       console.log('Sandbox Preview Setup:', {
         sandboxId: newSandboxId,
         port: newPort,
-        previewUrl,
+        sandboxUrl,
         previewType: 'vite'
       });
 
-      // Create a simple HTML preview using the generated files
-      const fallbackHtml = generateFallbackPreview(generatedFiles);
-      const blob = new Blob([fallbackHtml], { type: 'text/html' });
-      const fallbackUrl = URL.createObjectURL(blob);
-      setPreviewUrl(fallbackUrl);
+      // Try to use the sandbox URL first, fallback to local preview if needed
+      try {
+        // Test if the sandbox URL is accessible
+        const testResponse = await fetch(sandboxUrl, { method: 'HEAD' });
+        if (testResponse.ok) {
+          setPreviewUrl(sandboxUrl);
+          console.log('Using sandbox URL:', sandboxUrl);
+        } else {
+          throw new Error('Sandbox not accessible');
+        }
+      } catch (sandboxError) {
+        console.log('Sandbox not ready, using fallback preview:', sandboxError);
+        // Create a fallback HTML preview using the generated files
+        const fallbackHtml = generateFallbackPreview(generatedFiles);
+        const blob = new Blob([fallbackHtml], { type: 'text/html' });
+        const fallbackUrl = URL.createObjectURL(blob);
+        setPreviewUrl(fallbackUrl);
+        console.log('Using fallback preview:', fallbackUrl);
+      }
 
       // Automatically switch to preview mode when ready
       setViewMode('preview');
 
-      console.log('Preview created successfully:', fallbackUrl);
+      console.log('Preview created successfully');
     } catch (error) {
       console.error('Error creating sandbox preview:', error);
+      // Fallback to local preview on any error
+      const fallbackHtml = generateFallbackPreview(generatedFiles);
+      const blob = new Blob([fallbackHtml], { type: 'text/html' });
+      const fallbackUrl = URL.createObjectURL(blob);
+      setPreviewUrl(fallbackUrl);
+      setViewMode('preview');
     }
   };
 
@@ -1708,6 +2037,17 @@ export default App;`,
     setCodeErrors(errors);
     if (errors.length > 0) {
       console.log(`Detected ${errors.length} code errors - auto-fixing...`);
+      // Auto-show issue detection panel when errors arise
+      setDetectedIssues(errors.map((e: any, idx: number) => ({
+        id: `vite-${idx}-${Date.now()}`,
+        type: 'vite',
+        line: e.line || 1,
+        status: 'detected',
+        description: e.message || 'Vite/Tailwind error',
+        suggestedFix: 'Ask AI to fix',
+        file: e.file || 'unknown'
+      })));
+      setShowIssueDetection(true);
     }
   };
 
@@ -1751,13 +2091,32 @@ export default App;`,
               <span className="hidden sm:inline">Code</span>
             </button>
             <button
-              onClick={() => setViewMode('preview')}
-            disabled={!sandboxId}
+              onClick={async () => {
+                // Ensure a sandbox exists and prefer its URL
+                if (!sandboxId) {
+                  try {
+                    const resp = await fetch('/api/create-ai-sandbox', { method: 'POST' });
+                    if (resp.ok) {
+                      const data = await resp.json();
+                      if (data?.sandboxId) setSandboxId(data.sandboxId);
+                      if (data?.url) setPreviewUrl(data.url);
+                    }
+                  } catch (_) {}
+                }
+                try {
+                  const ok = await pollSandboxUntilReady();
+                  if (!ok && (!previewUrl || previewUrl.startsWith('blob:'))) {
+                    await createSandboxPreviewOptimized();
+                  }
+                } catch (_) {}
+                setViewMode('preview');
+              }}
+              disabled={!sandboxId && !previewUrl}
               className={`flex items-center gap-2 px-3 py-1 text-sm rounded-md transition-all duration-200 ${
                 viewMode === 'preview'
                   ? 'bg-orange-500 text-white shadow-sm'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-            } ${!sandboxId ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${(!sandboxId && !previewUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}
               title="Preview Mode"
           >
             <Eye className="w-4 h-4" />
@@ -1773,6 +2132,15 @@ export default App;`,
           >
             <Rocket className="w-4 h-4" />
             <span className="hidden sm:inline">Deploy</span>
+          </button>
+
+          <button
+            onClick={detectIssues}
+            className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Detect Issues"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            <span className="hidden sm:inline">Issues</span>
           </button>
 
           <button
@@ -1805,14 +2173,26 @@ export default App;`,
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <AnimatePresence mode="wait">
-              {messages.map((message, index) => (
+              {messages.map((message, index) => {
+                // Ensure we always have a valid key - never empty
+                const messageKey = message.id && message.id.trim() !== '' 
+                  ? message.id 
+                  : `message-${message.timestamp?.getTime() || Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
+                
+                // Debug logging to catch empty keys
+                if (!messageKey || messageKey.trim() === '') {
+                  console.error('Empty message key detected:', { message, index, messageKey });
+                }
+                
+                return (
                 <EnhancedChatMessage
-                  key={message.id || `message-${message.timestamp?.getTime() || Date.now()}-${index}`}
+                    key={messageKey}
                   message={message}
                   onRegenerate={handleRegenerate}
                   onFeedback={handleFeedback}
                 />
-              ))}
+                );
+              })}
             </AnimatePresence>
             <div ref={messagesEndRef} />
           </div>
@@ -1822,15 +2202,22 @@ export default App;`,
             <div className="px-6 py-3 border-t border-gray-100">
               <p className="text-sm text-gray-600 mb-3">Try these examples:</p>
               <div className="grid grid-cols-2 gap-2">
-                {quickPrompts.map((prompt, index) => (
+                {quickPrompts.map((prompt, index) => {
+                  const promptKey = globalKeyFix(`prompt-${index}`);
+                  // Debug logging to catch empty keys
+                  if (!promptKey || promptKey.trim() === '') {
+                    console.error('Empty prompt key detected:', { prompt, index, promptKey });
+                  }
+                  return (
                   <button
-                    key={globalKeyFix(`prompt-${index}`)}
+                      key={promptKey}
                     onClick={() => setInputValue(prompt)}
                     className="text-left p-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
                   >
                     {prompt}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2033,6 +2420,14 @@ export default App;`,
         />
 
       </AnimatePresence>
+
+      {/* Issue Detection Component */}
+      <IssueDetection
+        issues={detectedIssues}
+        onAskToFix={handleAskToFix}
+        onDismiss={handleDismissIssue}
+        isVisible={showIssueDetection}
+      />
     </div>
   );
 };

@@ -515,6 +515,22 @@ if result.stderr:
       }
     }
     
+    // If AI generated an App.tsx ensure Vite entry renders it
+    try {
+      const hasAppTsx = parsed.files.some(f => {
+        const normalized = f.path.replace(/^\//, '').replace(/^src\//, '');
+        return normalized === 'App.tsx';
+      });
+      if (hasAppTsx && global.activeSandbox) {
+        const mainJsxContent = `import React from 'react'\nimport ReactDOM from 'react-dom/client'\nimport App from './App.tsx'\nimport './index.css'\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>,\n)`;
+        await global.activeSandbox.files.write('/home/user/app/src/main.jsx', mainJsxContent);
+        results.filesUpdated.push('src/main.jsx');
+        if (global.existingFiles) global.existingFiles.add('src/main.jsx');
+      }
+    } catch (e) {
+      results.errors.push(`Failed updating main.jsx for App.tsx: ${(e as Error).message}`);
+    }
+
     // Check for missing imports in App.jsx
     const missingImports: string[] = [];
     const appFile = parsed.files.find(f => 

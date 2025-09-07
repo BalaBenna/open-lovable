@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 
-// Stub endpoint to prevent 404 errors
-// This endpoint is being called but the source is unknown
-// Returns empty errors array to satisfy any calling code
+declare global {
+  // Collected via /api/report-vite-error
+  var viteErrors: any[];
+}
+
 export async function GET() {
-  return NextResponse.json({
-    success: true,
-    errors: [],
-    message: 'No Vite errors detected'
-  });
+  try {
+    const reported = Array.isArray(global.viteErrors) ? global.viteErrors : [];
+
+    return NextResponse.json({
+      success: true,
+      errors: reported,
+      count: reported.length
+    });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
+  }
 }
