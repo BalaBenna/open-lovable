@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Sparkles, 
-  User, 
-  Code2, 
-  FileText, 
-  Clock, 
-  CheckCircle, 
+import {
+  Sparkles,
+  User,
+  Code2,
+  FileText,
+  Clock,
   AlertCircle,
   ChevronDown,
   ChevronRight,
@@ -17,7 +16,7 @@ import {
   ThumbsDown,
   RotateCcw
 } from 'lucide-react';
-import AIThinkingDisplay, { getDefaultThinkingSteps } from './AIThinkingDisplay';
+import AIThinkingDisplay from './AIThinkingDisplay';
 
 interface ChatMessage {
   id: string;
@@ -218,7 +217,7 @@ const EnhancedChatMessage: React.FC<EnhancedChatMessageProps> = ({
                         <div className="flex flex-wrap gap-1">
                           {message.metadata.filesGenerated.map((file, index) => (
                             <span
-                              key={index}
+                              key={`${message.id}-file-${index}-${file}`}
                               className="px-2 py-1 bg-gray-200 rounded text-xs font-mono"
                             >
                               {file.split('/').pop()}

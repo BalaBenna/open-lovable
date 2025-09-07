@@ -18,7 +18,12 @@ import {
   FileText,
   Plus,
   MoreVertical,
-  Mic
+  Mic,
+  Globe,
+  Zap,
+  BarChart3,
+  ShoppingCart,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RealtimeCodeEditor from './RealtimeCodeEditor';
@@ -160,6 +165,488 @@ const CustomChatInput: React.FC<CustomChatInputProps> = ({
     </form>
   );
 };
+
+// Enhanced Website Analyzer with Real-time Data
+const RealtimeWebsiteAnalyzer: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onAnalysisComplete: (analysis: any) => void;
+}> = ({ isOpen, onClose, onAnalysisComplete }) => {
+  const [url, setUrl] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [realTimeData, setRealTimeData] = useState<any>(null);
+
+  const analyzeWebsite = async () => {
+    if (!url.trim()) return;
+
+    setIsAnalyzing(true);
+    try {
+      // Real-time website analysis
+      const response = await fetch('/api/scrape-url-enhanced', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url.trim() })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRealTimeData(data);
+
+        // Extract design patterns and content
+        const designPatterns = {
+          colors: data.colors || [],
+          fonts: data.fonts || [],
+          components: data.components || [],
+          layout: data.layout || {},
+          animations: data.animations || []
+        };
+
+        onAnalysisComplete({
+          ...data,
+          designPatterns,
+          realTimeData: data
+        });
+      }
+    } catch (error) {
+      console.error('Analysis failed:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Globe className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Website Analyzer</h2>
+                    <p className="text-sm text-gray-600">Real-time website analysis and design extraction</p>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* URL Input */}
+              <div className="flex gap-3">
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={analyzeWebsite}
+                  disabled={!url.trim() || isAnalyzing}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {isAnalyzing ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <BarChart3 className="w-4 h-4" />
+                  )}
+                  {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              {realTimeData ? (
+                <div className="space-y-6">
+                  {/* Real-time Data Display */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Design Patterns */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-purple-600" />
+                        Design Patterns
+                      </h3>
+                      <div className="space-y-2">
+                        {realTimeData.colors && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Colors:</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {realTimeData.colors.slice(0, 6).map((color: string, i: number) => (
+                                <div key={`color-${i}-${color}`} className="flex items-center gap-2">
+                                  <div
+                                    className="w-4 h-4 rounded border"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                  <span className="text-xs text-gray-600">{color}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {realTimeData.components && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Components:</span>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {realTimeData.components.length} detected components
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Content Analysis */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-green-600" />
+                        Content Analysis
+                      </h3>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Title:</span>
+                          <p className="text-sm text-gray-600 mt-1">{realTimeData.title || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Meta Description:</span>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {realTimeData.description || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Content Length:</span>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {realTimeData.content?.length || 0} characters
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Real-time Preview */}
+                  {realTimeData.screenshot && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <Eye className="w-5 h-5 text-orange-600" />
+                        Live Preview
+                      </h3>
+                      <div className="bg-white rounded border overflow-hidden">
+                        <img
+                          src={realTimeData.screenshot}
+                          alt="Website preview"
+                          className="w-full h-auto max-h-64 object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Globe className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Analyze Any Website</h3>
+                  <p className="text-gray-600">
+                    Enter a website URL above to get real-time analysis including design patterns,
+                    content structure, and visual elements.
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+// Main Settings Modal with All Features
+const SettingsModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  generatedFiles: any[];
+  onTemplateSelect: (template: any) => void;
+  onSiteAnalysisComplete: (analysis: any) => void;
+  onShowCodeExplanation: () => void;
+  onShowVersionControl: () => void;
+  onShowRealtimeAnalyzer: () => void;
+}> = ({
+  isOpen,
+  onClose,
+  generatedFiles,
+  onTemplateSelect,
+  onSiteAnalysisComplete,
+  onShowCodeExplanation,
+  onShowVersionControl,
+  onShowRealtimeAnalyzer
+}) => {
+  const [activeSettingsTab, setActiveSettingsTab] = useState('templates');
+
+  const settingsTabs = [
+    { id: 'templates', label: 'Templates', icon: BookTemplate, description: 'Project templates and starters' },
+    { id: 'analyze', label: 'Analyze', icon: Search, description: 'Website analysis and design extraction' },
+    { id: 'explain', label: 'Explain', icon: BookOpen, description: 'Code explanation and documentation' },
+    { id: 'git', label: 'Git', icon: GitBranch, description: 'Version control and collaboration' }
+  ];
+
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Settings className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Settings & Tools</h2>
+                    <p className="text-sm text-gray-600">Access all your development tools and features</p>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Settings Tabs */}
+              <div className="flex space-x-1 bg-white rounded-lg p-1 shadow-sm">
+                {settingsTabs.map(tab => (
+                  <button
+                    key={tab.id || `tab-${tab.id}-${Math.random()}`}
+                    onClick={() => setActiveSettingsTab(tab.id)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex-1 ${
+                      activeSettingsTab === tab.id
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    <div className="text-left">
+                      <div className="font-semibold">{tab.label}</div>
+                      <div className={`text-xs ${activeSettingsTab === tab.id ? 'text-purple-100' : 'text-gray-500'}`}>
+                        {tab.description}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              {activeSettingsTab === 'templates' && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <BookTemplate className="w-16 h-16 mx-auto mb-4 text-purple-500" />
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Project Templates</h3>
+                    <p className="text-gray-600 mb-6">
+                      Choose from our collection of pre-built templates to kickstart your project
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { name: 'Landing Page', description: 'Modern landing page with hero section', icon: Sparkles },
+                      { name: 'Dashboard', description: 'Admin dashboard with charts', icon: BarChart3 },
+                      { name: 'E-commerce', description: 'Online store template', icon: ShoppingCart },
+                      { name: 'Blog', description: 'Content management system', icon: FileText },
+                      { name: 'Portfolio', description: 'Personal portfolio website', icon: User },
+                      { name: 'SaaS', description: 'Software as a service template', icon: Rocket }
+                    ].map((template, index) => (
+                      <div
+                        key={`template-${index}`}
+                        onClick={() => onTemplateSelect(template)}
+                        className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 cursor-pointer transition-colors border border-gray-200 hover:border-purple-300"
+                      >
+                        <template.icon className="w-8 h-8 mb-3 text-purple-600" />
+                        <h4 className="font-semibold text-gray-900 mb-1">{template.name}</h4>
+                        <p className="text-sm text-gray-600">{template.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === 'analyze' && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <Search className="w-16 h-16 mx-auto mb-4 text-blue-500" />
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Website Analysis</h3>
+                    <p className="text-gray-600 mb-6">
+                      Analyze any website to extract design patterns, colors, and content structure
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-1">Real-time Analysis</h4>
+                        <p className="text-sm text-gray-600">Get live data from any website instantly</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          onShowRealtimeAnalyzer();
+                          // Close settings modal
+                          onClose();
+                        }}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        Start Analysis
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-purple-500" />
+                        <span>Design Patterns</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-blue-500" />
+                        <span>Content Structure</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-green-500" />
+                        <span>Live Preview</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === 'explain' && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <BookOpen className="w-16 h-16 mx-auto mb-4 text-green-500" />
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Code Explanation</h3>
+                    <p className="text-gray-600 mb-6">
+                      Get detailed explanations of your generated code and understand how everything works
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 rounded-lg p-6 border border-green-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-1">AI-Powered Explanations</h4>
+                        <p className="text-sm text-gray-600">Understand your code with detailed breakdowns</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          onShowCodeExplanation();
+                          // Close settings modal
+                          onClose();
+                        }}
+                        disabled={generatedFiles.length === 0}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        Explain Code
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div className="bg-white rounded p-3 border">
+                        <div className="font-medium text-gray-900 mb-1">Component Analysis</div>
+                        <div className="text-gray-600">Break down React components</div>
+                      </div>
+                      <div className="bg-white rounded p-3 border">
+                        <div className="font-medium text-gray-900 mb-1">Logic Explanation</div>
+                        <div className="text-gray-600">Understand business logic</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === 'git' && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <GitBranch className="w-16 h-16 mx-auto mb-4 text-orange-500" />
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Version Control</h3>
+                    <p className="text-gray-600 mb-6">
+                      Manage your code versions, track changes, and collaborate with Git
+                    </p>
+                  </div>
+
+                  <div className="bg-orange-50 rounded-lg p-6 border border-orange-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-1">Git Version Control</h4>
+                        <p className="text-sm text-gray-600">Complete Git workflow management</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          onShowVersionControl();
+                          // Close settings modal
+                          onClose();
+                        }}
+                        disabled={generatedFiles.length === 0}
+                        className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                      >
+                        <GitBranch className="w-4 h-4" />
+                        Open Git
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <History className="w-4 h-4 text-blue-500" />
+                        <span>Commit History</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <GitBranch className="w-4 h-4 text-green-500" />
+                        <span>Branch Management</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Save className="w-4 h-4 text-purple-500" />
+                        <span>Staged Changes</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
 import SandboxPreview from './SandboxPreview';
 import AutoErrorCorrection from './AutoErrorCorrection';
 
@@ -191,9 +678,19 @@ interface GeneratedFile {
 }
 
 const LovableInterface: React.FC = () => {
+  // Helper function to generate unique message IDs
+  const [messageIdCounter, setMessageIdCounter] = useState(0);
+
+  const generateMessageId = () => {
+    const timestamp = Date.now();
+    const counter = messageIdCounter;
+    setMessageIdCounter(prev => prev + 1);
+    return `${timestamp}-${counter}`;
+  };
+
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
+      id: 'welcome-message',
       role: 'system',
       content: 'Welcome to Lovable! I\'m your AI development partner. Describe what you\'d like to build, and I\'ll create it for you in real-time.',
       timestamp: new Date()
@@ -214,6 +711,7 @@ const LovableInterface: React.FC = () => {
   const [showCodeExplanation, setShowCodeExplanation] = useState(false);
   const [showVersionControl, setShowVersionControl] = useState(false);
   const [showSiteAnalyzer, setShowSiteAnalyzer] = useState(false);
+  const [showRealtimeAnalyzer, setShowRealtimeAnalyzer] = useState(false);
   const [activeTab, setActiveTab] = useState<'history' | 'branches' | 'changes'>('history');
   const [currentProject, setCurrentProject] = useState('my-lovable-app');
   const [currentError, setCurrentError] = useState<any>(null);
@@ -231,7 +729,7 @@ const LovableInterface: React.FC = () => {
     if (!inputValue.trim() || isGenerating) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: generateMessageId(),
       role: 'user',
       content: inputValue.trim(),
       timestamp: new Date()
@@ -243,7 +741,7 @@ const LovableInterface: React.FC = () => {
 
     // Add assistant message placeholder
     const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
+      id: generateMessageId(),
       role: 'assistant',
       content: '',
       timestamp: new Date(),
@@ -655,7 +1153,7 @@ const Features = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <div key={index} className="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
+            <div key={'feature-' + index + '-' + Date.now() + '-' + Math.random()} className="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
               <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
               <p className="text-gray-300">{feature.description}</p>
             </div>
@@ -916,7 +1414,7 @@ export default Footer;`,
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <header className="bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
@@ -929,59 +1427,20 @@ export default Footer;`,
 
         <div className="flex items-center gap-3">
           {/* Model Selector */}
-          <select 
+          <select
             value={selectedModel}
             onChange={(e) => setSelectedModel(e.target.value)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="openai/gpt-5">GPT-5</option>
             <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
           </select>
 
-          {/* Action Buttons */}
-          <button 
-            onClick={() => setShowTemplates(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Project Templates"
-          >
-            <BookTemplate className="w-4 h-4" />
-            <span className="hidden sm:inline">Templates</span>
-          </button>
-
-          <button 
-            onClick={() => setShowSiteAnalyzer(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Analyze Websites"
-          >
-            <Search className="w-4 h-4" />
-            <span className="hidden sm:inline">Analyze</span>
-          </button>
-
-          <button 
-            onClick={() => setShowCodeExplanation(true)}
-            disabled={generatedFiles.length === 0}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-            title="Explain Code"
-          >
-            <BookOpen className="w-4 h-4" />
-            <span className="hidden sm:inline">Explain</span>
-          </button>
-
-          <button 
-            onClick={() => setShowVersionControl(true)}
-            disabled={generatedFiles.length === 0}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-            title="Version Control"
-          >
-            <GitBranch className="w-4 h-4" />
-            <span className="hidden sm:inline">Git</span>
-          </button>
-
           {/* Code/Preview Toggle */}
-          <div className="flex items-center bg-white/80 backdrop-blur-sm border border-gray-200 rounded-lg p-1">
+          <div className="flex items-center bg-white/80 backdrop-blur-sm border border-gray-200 rounded-lg p-0.5">
           <button
               onClick={() => setViewMode('code')}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${
+              className={`flex items-center gap-2 px-3 py-1 text-sm rounded-md transition-all duration-200 ${
                 viewMode === 'code'
                   ? 'bg-orange-500 text-white shadow-sm'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
@@ -994,7 +1453,7 @@ export default Footer;`,
             <button
               onClick={() => setViewMode('preview')}
             disabled={!sandboxId}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${
+              className={`flex items-center gap-2 px-3 py-1 text-sm rounded-md transition-all duration-200 ${
                 viewMode === 'preview'
                   ? 'bg-orange-500 text-white shadow-sm'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
@@ -1006,20 +1465,20 @@ export default Footer;`,
           </button>
           </div>
           
-          <button 
+          <button
             onClick={() => setShowDeployment(true)}
             disabled={generatedFiles.length === 0}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
             title="Deploy"
           >
             <Rocket className="w-4 h-4" />
             <span className="hidden sm:inline">Deploy</span>
           </button>
 
-          <button 
-            onClick={() => setShowSettings(!showSettings)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Settings"
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Settings & Tools"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -1035,7 +1494,7 @@ export default Footer;`,
             <AnimatePresence>
               {messages.map((message) => (
                 <EnhancedChatMessage
-                  key={message.id}
+                  key={message.id || `message-${Date.now()}-${Math.random()}`}
                   message={message}
                   onRegenerate={handleRegenerate}
                   onFeedback={handleFeedback}
@@ -1052,7 +1511,7 @@ export default Footer;`,
               <div className="grid grid-cols-2 gap-2">
                 {quickPrompts.map((prompt, index) => (
                   <button
-                    key={index}
+                    key={'prompt-' + index + '-' + Date.now() + '-' + Math.random()}
                     onClick={() => setInputValue(prompt)}
                     className="text-left p-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
                   >
@@ -1143,7 +1602,7 @@ export default Footer;`,
                             { id: 'changes', label: 'Changes', icon: FileText }
                           ].map(tab => (
                             <button
-                              key={tab.id}
+                              key={tab.id || `git-tab-${tab.id}-${Math.random()}`}
                               onClick={() => setActiveTab(tab.id as any)}
                               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                                 activeTab === tab.id
@@ -1257,6 +1716,25 @@ export default Footer;`,
             onClose={() => setShowSiteAnalyzer(false)}
           />
         )}
+
+        {/* Settings Modal */}
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          generatedFiles={generatedFiles}
+          onTemplateSelect={handleTemplateSelect}
+          onSiteAnalysisComplete={handleSiteAnalysisComplete}
+          onShowCodeExplanation={() => setShowCodeExplanation(true)}
+          onShowVersionControl={() => setShowVersionControl(true)}
+          onShowRealtimeAnalyzer={() => setShowRealtimeAnalyzer(true)}
+        />
+
+        {/* Real-time Website Analyzer */}
+        <RealtimeWebsiteAnalyzer
+          isOpen={showRealtimeAnalyzer}
+          onClose={() => setShowRealtimeAnalyzer(false)}
+          onAnalysisComplete={handleSiteAnalysisComplete}
+        />
       </AnimatePresence>
     </div>
   );
