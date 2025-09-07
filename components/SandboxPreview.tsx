@@ -8,6 +8,9 @@ interface SandboxPreviewProps {
   output?: string;
   isLoading?: boolean;
   previewUrl?: string;
+  onRefresh?: () => void;
+  onToggleConsole?: () => void;
+  onOpenInNewTab?: () => void;
 }
 
 export default function SandboxPreview({
@@ -16,7 +19,10 @@ export default function SandboxPreview({
   type,
   output,
   isLoading = false,
-  previewUrl: propPreviewUrl
+  previewUrl: propPreviewUrl,
+  onRefresh,
+  onToggleConsole,
+  onOpenInNewTab
 }: SandboxPreviewProps) {
   const [showConsole, setShowConsole] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
@@ -62,6 +68,19 @@ export default function SandboxPreview({
     setIframeKey(prev => prev + 1);
     setIframeError(null);
     setRetryCount(0);
+    onRefresh?.();
+  };
+
+  const handleToggleConsole = () => {
+    setShowConsole(!showConsole);
+    onToggleConsole?.();
+  };
+
+  const handleOpenInNewTab = () => {
+    if (displayUrl) {
+      window.open(displayUrl, '_blank', 'noopener,noreferrer');
+    }
+    onOpenInNewTab?.();
   };
 
   const handleIframeError = () => {
@@ -89,46 +108,9 @@ export default function SandboxPreview({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Preview Controls */}
-      <div className="flex items-center justify-between bg-gray-800 rounded-lg p-3 border border-gray-700">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400">
-                {type === 'vite' ? '⚡ Vite + React + TypeScript' : type === 'nextjs' ? '▲ Next.js' : '📦 Console'} Preview
-              </span>
-          <code className={`text-xs bg-gray-900 px-2 py-1 rounded ${displayUrl ? 'text-blue-400' : 'text-red-400'}`}>
-            {displayUrl || 'No preview URL available'}
-          </code>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowConsole(!showConsole)}
-            className="p-2 hover:bg-gray-700 rounded transition-colors"
-            title="Toggle console"
-          >
-            <Terminal className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleRefresh}
-            className="p-2 hover:bg-gray-700 rounded transition-colors"
-            title="Refresh preview"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <a
-            href={displayUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 hover:bg-gray-700 rounded transition-colors"
-            title="Open in new tab"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
-        </div>
-      </div>
-
-      {/* Main Preview */}
-      <div className="relative bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
+    <div className="h-full flex flex-col">
+      {/* Main Preview - Full height without white container */}
+      <div className="relative flex-1 bg-gray-900 rounded-lg overflow-hidden">
         {isLoading && (
           <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-10">
             <div className="text-center">
@@ -167,7 +149,7 @@ export default function SandboxPreview({
             <iframe
               key={iframeKey}
               src={displayUrl}
-              className="w-full h-[600px] bg-white"
+              className="w-full h-full bg-white"
               title={`${type} preview`}
               sandbox="allow-scripts allow-same-origin allow-forms"
               onError={handleIframeError}
@@ -178,7 +160,7 @@ export default function SandboxPreview({
             />
           </>
         ) : (
-          <div className="w-full h-[600px] bg-gray-100 flex items-center justify-center text-gray-500">
+          <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,17 +177,6 @@ export default function SandboxPreview({
         )}
       </div>
 
-      {/* Console Output (Toggle) */}
-      {showConsole && output && (
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-gray-400">Console Output</span>
-          </div>
-          <div className="font-mono text-xs whitespace-pre-wrap text-gray-300 max-h-48 overflow-y-auto">
-            {output}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

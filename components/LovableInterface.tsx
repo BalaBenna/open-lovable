@@ -28,6 +28,7 @@ import RealtimeCodeEditor from './RealtimeCodeEditor';
 import EnhancedChatMessage from './EnhancedChatMessage';
 import ProjectTemplates from './ProjectTemplates';
 import DeploymentOptions from './DeploymentOptions';
+import PreviewControls from './PreviewControls';
 import ErrorRecoverySystem from './ErrorRecoverySystem';
 import VersionControlPanel from './VersionControlPanel';
 
@@ -591,6 +592,82 @@ const LovableInterface: React.FC = () => {
     return `msg-${microTime}-${counter}-${randomSuffix}`;
   };
 
+  // AI Insights generation based on user query
+  const generateAIInsights = (prompt: string, operation: string) => {
+    const lowerPrompt = prompt.toLowerCase();
+    
+    // Analyze the user's request to understand what they want
+    let projectType = 'web application';
+    let keyFeatures = [];
+    let designStyle = 'modern';
+    let colorScheme = 'blue and purple gradient';
+    
+    // Determine project type
+    if (lowerPrompt.includes('portfolio') || lowerPrompt.includes('personal website')) {
+      projectType = 'portfolio website';
+      keyFeatures = ['About section', 'Projects showcase', 'Contact form', 'Skills display'];
+      designStyle = 'professional and clean';
+    } else if (lowerPrompt.includes('todo') || lowerPrompt.includes('task')) {
+      projectType = 'todo application';
+      keyFeatures = ['Task management', 'Add/delete tasks', 'Mark as complete', 'Filter tasks'];
+      designStyle = 'minimal and functional';
+    } else if (lowerPrompt.includes('dashboard') || lowerPrompt.includes('admin')) {
+      projectType = 'dashboard application';
+      keyFeatures = ['Data visualization', 'Charts and graphs', 'User management', 'Analytics'];
+      designStyle = 'data-focused and professional';
+    } else if (lowerPrompt.includes('ecommerce') || lowerPrompt.includes('shop') || lowerPrompt.includes('store')) {
+      projectType = 'e-commerce website';
+      keyFeatures = ['Product catalog', 'Shopping cart', 'User authentication', 'Payment integration'];
+      designStyle = 'commercial and trustworthy';
+    } else if (lowerPrompt.includes('blog') || lowerPrompt.includes('article')) {
+      projectType = 'blog website';
+      keyFeatures = ['Article listing', 'Individual post pages', 'Categories', 'Search functionality'];
+      designStyle = 'content-focused and readable';
+    } else if (lowerPrompt.includes('landing') || lowerPrompt.includes('marketing')) {
+      projectType = 'landing page';
+      keyFeatures = ['Hero section', 'Feature highlights', 'Call-to-action buttons', 'Contact form'];
+      designStyle = 'conversion-optimized';
+    }
+    
+    // Determine color scheme
+    if (lowerPrompt.includes('dark') || lowerPrompt.includes('black')) {
+      colorScheme = 'dark theme with neon accents';
+    } else if (lowerPrompt.includes('light') || lowerPrompt.includes('white')) {
+      colorScheme = 'light theme with subtle colors';
+    } else if (lowerPrompt.includes('colorful') || lowerPrompt.includes('bright')) {
+      colorScheme = 'vibrant and colorful';
+    } else if (lowerPrompt.includes('minimal') || lowerPrompt.includes('simple')) {
+      colorScheme = 'minimal with monochrome accents';
+    }
+    
+    return `🎯 **Project Analysis**
+I understand you want to build a ${projectType}. Let me break down what I'm implementing:
+
+🏗️ **Architecture Planning** 
+- Component structure optimized for maintainability
+- Responsive design with mobile-first approach  
+- Performance optimizations built-in
+- Clean, semantic code following React best practices
+
+🎨 **Design System**
+- ${designStyle} design approach
+- ${colorScheme} color palette
+- Typography scale for perfect readability
+- Smooth animations and micro-interactions
+- Accessibility features included
+
+⚡ **Implementation Details**
+- Using React 19 with latest features
+- Tailwind CSS for styling
+- TypeScript for type safety
+- Optimized bundle size and loading performance
+
+🔧 **Key Features**
+${keyFeatures.map(feature => `- ${feature}`).join('\n')}
+
+The code is being generated now and will appear in the editor. You'll see each file as it's created!`;
+  };
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -706,7 +783,7 @@ const LovableInterface: React.FC = () => {
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center">
                     <h1 class="text-2xl font-bold text-white">Lovable</h1>
-                </div>
+        </div>
                 <nav class="hidden md:flex">
                     <ul class="flex space-x-8">
                         <li><a href="#features" class="text-gray-300 hover:text-white transition-colors">Features</a></li>
@@ -724,8 +801,8 @@ const LovableInterface: React.FC = () => {
             <div class="flex justify-center mb-6">
                 <div class="flex items-center gap-2 bg-yellow-500 px-4 py-2 rounded-full">
                     <span class="text-yellow-900 font-medium">🚀 AI-Powered Development</span>
-                </div>
-            </div>
+                        </div>
+                    </div>
             <h1 class="text-5xl md:text-6xl font-bold text-white mb-6">
                 Build Amazing Apps with
                 <span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500"> AI</span>
@@ -751,7 +828,7 @@ const LovableInterface: React.FC = () => {
             <div class="text-center mb-16">
                 <h2 class="text-4xl font-bold text-white mb-4">Features</h2>
                 <p class="text-xl text-gray-300">Everything you need to build amazing applications</p>
-            </div>
+                </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div class="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
                     <h3 class="text-xl font-semibold text-white mb-3">AI-Powered Development</h3>
@@ -760,7 +837,7 @@ const LovableInterface: React.FC = () => {
                 <div class="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
                     <h3 class="text-xl font-semibold text-white mb-3">Real-time Preview</h3>
                     <p class="text-gray-300">See your changes instantly with live preview functionality.</p>
-                </div>
+            </div>
                 <div class="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
                     <h3 class="text-xl font-semibold text-white mb-3">Modern Tech Stack</h3>
                     <p class="text-gray-300">Built with React, TypeScript, and Tailwind CSS for optimal performance.</p>
@@ -792,37 +869,6 @@ const LovableInterface: React.FC = () => {
     return html;
   };
 
-  const generateAIInsights = (prompt: string, operation: string) => {
-    const promptLower = prompt.toLowerCase();
-
-    // Analyze the prompt for specific patterns and provide relevant insights
-    if (promptLower.includes('landing page') || promptLower.includes('homepage')) {
-      return `🌟 **Landing Page Strategy Insights**\nBased on your request, I'm creating a high-converting landing page with:\n• Hero section with compelling value proposition\n• Social proof elements (testimonials, stats)\n• Clear call-to-action buttons\n• Mobile-responsive design that works on all devices\n• Fast loading performance for better SEO`;
-    }
-
-    if (promptLower.includes('dashboard') || promptLower.includes('admin')) {
-      return `📊 **Dashboard Design Insights**\nI'm building a comprehensive dashboard with:\n• Intuitive navigation and user experience\n• Data visualization components (charts, graphs)\n• Real-time updates and live data feeds\n• Responsive grid layout that adapts to screen sizes\n• Clean information hierarchy for better usability`;
-    }
-
-    if (promptLower.includes('ecommerce') || promptLower.includes('shop') || promptLower.includes('store')) {
-      return `🛒 **E-commerce Excellence Insights**\nYour online store will feature:\n• Product catalog with advanced filtering\n• Shopping cart with persistent state\n• Secure checkout flow with multiple payment options\n• Customer reviews and ratings system\n• Inventory management and order tracking`;
-    }
-
-    if (promptLower.includes('blog') || promptLower.includes('news') || promptLower.includes('article')) {
-      return `📝 **Content Platform Insights**\nI'm creating a content-rich platform with:\n• Clean article layout with optimal readability\n• Category-based content organization\n• Search functionality with filters\n• Social sharing capabilities\n• SEO-optimized structure for better discoverability`;
-    }
-
-    if (promptLower.includes('portfolio') || promptLower.includes('showcase')) {
-      return `🎨 **Portfolio Showcase Insights**\nYour portfolio will showcase:\n• Professional project galleries\n• Skill highlights and expertise areas\n• Contact integration and lead capture\n• Visual storytelling through design\n• Performance optimized for creative work presentation`;
-    }
-
-    if (operation === 'edit') {
-      return `🔧 **Code Enhancement Insights**\nI'm improving your existing code by:\n• Refactoring for better maintainability\n• Adding error handling and validation\n• Optimizing performance and loading times\n• Enhancing user experience and accessibility\n• Following modern React and TypeScript best practices`;
-    }
-
-    // Generic insights for other types of applications
-    return `🚀 **Application Development Insights**\nI'm building your application with:\n• Modern React architecture and patterns\n• TypeScript for enhanced developer experience\n• Responsive design that works everywhere\n• Performance optimizations for fast loading\n• Clean, maintainable code structure that scales`;
-  };
 
   const getDefaultThinkingSteps = (operation: string, messageId: string) => {
     const baseSteps = [
@@ -950,18 +996,18 @@ const LovableInterface: React.FC = () => {
       }));
 
       // Single update to show all steps as completed
-      setMessages(prev => prev.map(msg => 
-        msg.isGenerating 
-          ? { 
-              ...msg, 
-              thinking: {
-                ...msg.thinking!,
+        setMessages(prev => prev.map(msg => 
+          msg.isGenerating 
+            ? { 
+                ...msg, 
+                thinking: {
+                  ...msg.thinking!,
                 currentStep: completedSteps[completedSteps.length - 1].id,
                 steps: completedSteps
+                }
               }
-            }
-          : msg
-      ));
+            : msg
+        ));
 
       // Simulate total processing time
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -999,8 +1045,324 @@ I understand you want to build a ${operation === 'generate' ? 'new application' 
 
 The code is being generated now and will appear in the editor. You'll see each file as it's created!`;
     
-    // Simulate file generation with Vite + TypeScript + React + Tailwind CSS stack
-    const mockFiles: GeneratedFile[] = [
+    // Code generation functions for different project types
+    const generateTodoApp = (): GeneratedFile[] => [
+      {
+        path: 'src/App.tsx',
+        content: `import React, { useState } from 'react';
+import { TodoList } from './components/TodoList';
+import { AddTodo } from './components/AddTodo';
+import './index.css';
+
+interface Todo {
+  id: number;
+  text: string;
+  completed: boolean;
+}
+
+function App() {
+  const [todos, setTodos] = useState<Todo[]>([]);
+
+  const addTodo = (text: string) => {
+    const newTodo: Todo = {
+      id: Date.now(),
+      text,
+      completed: false
+    };
+    setTodos([...todos, newTodo]);
+  };
+
+  const toggleTodo = (id: number) => {
+    setTodos(todos.map(todo => 
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    ));
+  };
+
+  const deleteTodo = (id: number) => {
+    setTodos(todos.filter(todo => todo.id !== id));
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-4xl font-bold text-center text-gray-800 mb-8">
+          Todo App
+        </h1>
+        <AddTodo onAdd={addTodo} />
+        <TodoList 
+          todos={todos} 
+          onToggle={toggleTodo} 
+          onDelete={deleteTodo} 
+        />
+      </div>
+    </div>
+  );
+}
+
+export default App;`,
+        language: 'tsx',
+        status: 'generating'
+      },
+      {
+        path: 'src/components/TodoList.tsx',
+        content: `import React from 'react';
+
+interface Todo {
+  id: number;
+  text: string;
+  completed: boolean;
+}
+
+interface TodoListProps {
+  todos: Todo[];
+  onToggle: (id: number) => void;
+  onDelete: (id: number) => void;
+}
+
+export const TodoList: React.FC<TodoListProps> = ({ todos, onToggle, onDelete }) => {
+  return (
+    <div className="mt-6">
+      {todos.length === 0 ? (
+        <p className="text-center text-gray-500 text-lg">No todos yet. Add one above!</p>
+      ) : (
+        <ul className="space-y-2">
+          {todos.map(todo => (
+            <li key={todo.id} className="flex items-center justify-between bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={todo.completed}
+                  onChange={() => onToggle(todo.id)}
+                  className="mr-3 h-5 w-5 text-blue-600"
+                />
+                <span className={todo.completed ? 'line-through text-gray-500' : 'text-gray-800'}>
+                  {todo.text}
+                </span>
+              </div>
+              <button
+                onClick={() => onDelete(todo.id)}
+                className="text-red-500 hover:text-red-700 font-bold"
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};`,
+        language: 'tsx',
+        status: 'generating'
+      },
+      {
+        path: 'src/components/AddTodo.tsx',
+        content: `import React, { useState } from 'react';
+
+interface AddTodoProps {
+  onAdd: (text: string) => void;
+}
+
+export const AddTodo: React.FC<AddTodoProps> = ({ onAdd }) => {
+  const [text, setText] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (text.trim()) {
+      onAdd(text.trim());
+      setText('');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2">
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Add a new todo..."
+        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <button
+        type="submit"
+        className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+      >
+        Add Todo
+      </button>
+    </form>
+  );
+};`,
+        language: 'tsx',
+        status: 'generating'
+      }
+    ];
+
+    const generatePortfolioWebsite = (): GeneratedFile[] => [
+      {
+        path: 'src/App.tsx',
+        content: `import React from 'react';
+import { Header } from './components/Header';
+import { Hero } from './components/Hero';
+import { About } from './components/About';
+import { Projects } from './components/Projects';
+import { Contact } from './components/Contact';
+import './index.css';
+
+function App() {
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
+      <main>
+        <Hero />
+        <About />
+        <Projects />
+        <Contact />
+      </main>
+    </div>
+  );
+}
+
+export default App;`,
+        language: 'tsx',
+        status: 'generating'
+      },
+      {
+        path: 'src/components/Hero.tsx',
+        content: `import React from 'react';
+
+export const Hero = () => {
+  return (
+    <section className="bg-gradient-to-br from-blue-600 to-purple-700 text-white py-20">
+      <div className="container mx-auto px-4 text-center">
+        <h1 className="text-5xl font-bold mb-4">John Doe</h1>
+        <p className="text-xl mb-6">Full Stack Developer & UI/UX Designer</p>
+        <p className="text-lg mb-8 max-w-2xl mx-auto">
+          I create beautiful, functional web applications that solve real-world problems.
+        </p>
+        <button className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+          View My Work
+        </button>
+          </div>
+    </section>
+  );
+};`,
+        language: 'tsx',
+        status: 'generating'
+      }
+    ];
+
+    const generateDashboard = (): GeneratedFile[] => [
+      {
+        path: 'src/App.tsx',
+        content: `import React from 'react';
+import { Sidebar } from './components/Sidebar';
+import { Header } from './components/Header';
+import { DashboardContent } from './components/DashboardContent';
+import './index.css';
+
+function App() {
+  return (
+    <div className="min-h-screen bg-gray-100 flex">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
+        <Header />
+        <DashboardContent />
+          </div>
+        </div>
+  );
+}
+
+export default App;`,
+        language: 'tsx',
+        status: 'generating'
+      }
+    ];
+
+    const generateEcommerceSite = (): GeneratedFile[] => [
+      {
+        path: 'src/App.tsx',
+        content: `import React from 'react';
+import { Header } from './components/Header';
+import { ProductGrid } from './components/ProductGrid';
+import { Cart } from './components/Cart';
+import './index.css';
+
+function App() {
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        <ProductGrid />
+      </main>
+      <Cart />
+    </div>
+  );
+}
+
+export default App;`,
+        language: 'tsx',
+        status: 'generating'
+      }
+    ];
+
+    const generateBlogSite = (): GeneratedFile[] => [
+      {
+        path: 'src/App.tsx',
+        content: `import React from 'react';
+import { Header } from './components/Header';
+import { BlogList } from './components/BlogList';
+import { Article } from './components/Article';
+import './index.css';
+
+function App() {
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        <BlogList />
+      </main>
+    </div>
+  );
+}
+
+export default App;`,
+        language: 'tsx',
+        status: 'generating'
+      }
+    ];
+
+    const generateLandingPage = (): GeneratedFile[] => [
+      {
+        path: 'src/App.tsx',
+        content: `import React from 'react';
+import { Header } from './components/Header';
+import { Hero } from './components/Hero';
+import { Features } from './components/Features';
+import { CTA } from './components/CTA';
+import { Footer } from './components/Footer';
+import './index.css';
+
+function App() {
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
+      <main>
+        <Hero />
+        <Features />
+        <CTA />
+      </main>
+      <Footer />
+        </div>
+  );
+}
+
+export default App;`,
+        language: 'tsx',
+        status: 'generating'
+      }
+    ];
+
+    const generateDefaultApp = (): GeneratedFile[] => [
       {
         path: 'src/App.tsx',
         content: `import React from 'react';
@@ -1019,158 +1381,39 @@ function App() {
         <Features />
       </main>
       <Footer />
-    </div>
+        </div>
   );
 }
 
 export default App;`,
         language: 'tsx',
         status: 'generating'
-      },
-      {
-        path: 'src/components/Header.tsx',
-        content: `import React from 'react';
-
-export const Header = () => {
-  return (
-    <header className="bg-gray-800 border-b border-gray-700">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-white">Lovable</h1>
-          </div>
-          <nav className="hidden md:flex">
-            <ul className="flex space-x-8">
-              <li>
-                <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-              </li>
-              <li>
-                <a href="#about" className="text-gray-300 hover:text-white transition-colors">About</a>
-              </li>
-              <li>
-                <a href="#contact" className="text-gray-300 hover:text-white transition-colors">Contact</a>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </div>
-    </header>
-  );
-};`,
-        language: 'tsx',
-        status: 'generating'
-      },
-      {
-        path: 'src/components/Hero.jsx',
-        content: `import React from 'react';
-
-const Hero = () => {
-  return (
-    <section className="bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 py-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="flex justify-center mb-6">
-          <div className="flex items-center gap-2 bg-yellow-500 px-4 py-2 rounded-full">
-            <span className="text-yellow-900 font-medium">🚀 AI-Powered Development</span>
-          </div>
-        </div>
-        <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-          Build Amazing Apps with
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500"> AI</span>
-        </h1>
-        <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-          Transform your ideas into beautiful, functional applications using the power of artificial intelligence.
-          No coding experience required.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-8 py-4 rounded-lg font-semibold hover:scale-105 transition-transform flex items-center gap-2">
-            Get Started Free →
-          </button>
-          <button className="border border-gray-400 text-white px-8 py-4 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
-            Watch Demo
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-};
-
-export default Hero;`,
-        language: 'jsx',
-        status: 'generating'
-      },
-      {
-        path: 'src/index.css',
-        content: `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer base {\n  body {\n    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;\n    line-height: 1.6;\n  }\n}\n\n@layer components {\n  .btn-primary {\n    @apply bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:scale-105 transition-transform;\n  }\n  \n  .card {\n    @apply bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow;\n  }\n}\n\n@keyframes fadeInUp {\n  from {\n    opacity: 0;\n    transform: translateY(30px);\n  }\n  to {\n    opacity: 1;\n    transform: translateY(0);\n  }\n}\n\n.animate-fade-in-up {\n  animation: fadeInUp 0.6s ease-out forwards;\n}`,
-        language: 'css',
-        status: 'generating'
-      },
-      {
-        path: 'src/components/Features.jsx',
-        content: `import React from 'react';
-
-const Features = () => {
-  const features = [
-    {
-      title: 'AI-Powered Development',
-      description: 'Build applications with the help of advanced AI that understands your requirements.'
-    },
-    {
-      title: 'Real-time Preview',
-      description: 'See your changes instantly with live preview functionality.'
-    },
-    {
-      title: 'Modern Tech Stack',
-      description: 'Built with React, TypeScript, and Tailwind CSS for optimal performance.'
-    }
-  ];
-
-  return (
-    <section className="py-20 bg-gray-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-white mb-4">Features</h2>
-          <p className="text-xl text-gray-300">Everything you need to build amazing applications</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
-            <div key={globalKeyFix('feature-' + index)} className="bg-gray-700 rounded-lg p-6 hover:bg-gray-600 transition-colors">
-              <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
-              <p className="text-gray-300">{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
-
-export default Features;`,
-        language: 'jsx',
-        status: 'generating'
-      },
-      {
-        path: 'src/components/Footer.jsx',
-        content: `import React from 'react';
-
-const Footer = () => {
-  return (
-    <footer className="bg-gray-900 border-t border-gray-700">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center">
-          <p className="text-gray-400">
-            Built with ❤️ using AI-powered development tools
-          </p>
-        </div>
-      </div>
-    </footer>
-  );
-};
-
-export default Footer;`,
-        language: 'jsx',
-        status: 'generating'
       }
     ];
+
+    // Generate dynamic code based on user query
+    const generateDynamicCode = (prompt: string): GeneratedFile[] => {
+      const lowerPrompt = prompt.toLowerCase();
+      
+      // Determine project type and generate appropriate code
+      if (lowerPrompt.includes('todo') || lowerPrompt.includes('task')) {
+        return generateTodoApp();
+      } else if (lowerPrompt.includes('portfolio') || lowerPrompt.includes('personal website')) {
+        return generatePortfolioWebsite();
+      } else if (lowerPrompt.includes('dashboard') || lowerPrompt.includes('admin')) {
+        return generateDashboard();
+      } else if (lowerPrompt.includes('ecommerce') || lowerPrompt.includes('shop') || lowerPrompt.includes('store')) {
+        return generateEcommerceSite();
+      } else if (lowerPrompt.includes('blog') || lowerPrompt.includes('article')) {
+        return generateBlogSite();
+      } else if (lowerPrompt.includes('landing') || lowerPrompt.includes('marketing')) {
+        return generateLandingPage();
+      } else {
+        return generateDefaultApp();
+      }
+    };
+
+    const mockFiles: GeneratedFile[] = generateDynamicCode(prompt);
 
     // Add configuration files for Vite + TypeScript + shadcn-ui stack
     const configFiles: GeneratedFile[] = [
@@ -1387,6 +1630,22 @@ export default Footer;`,
     // In real app, send feedback to analytics
   };
 
+  // Preview control functions
+  const handlePreviewRefresh = () => {
+    console.log('Refreshing preview...');
+    // Trigger preview refresh
+  };
+
+  const handleToggleConsole = () => {
+    console.log('Toggling console...');
+    // Toggle console visibility
+  };
+
+  const handleOpenInNewTab = () => {
+    console.log('Opening preview in new tab...');
+    // Open preview in new tab
+  };
+
 
   const handleErrorRetry = async (_strategy?: string) => {
     setIsRetrying(true);
@@ -1523,6 +1782,19 @@ export default Footer;`,
           >
             <Settings className="w-4 h-4" />
           </button>
+
+          {/* Preview Controls - Only show when in preview mode */}
+          {viewMode === 'preview' && (
+            <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
+              <PreviewControls
+                onRefresh={handlePreviewRefresh}
+                onToggleConsole={handleToggleConsole}
+                onOpenInNewTab={handleOpenInNewTab}
+                previewUrl={previewUrl}
+                isLoading={isPreviewLoading}
+              />
+            </div>
+          )}
         </div>
       </header>
 
@@ -1692,11 +1964,11 @@ export default Footer;`,
             {/* Code Editor Container with fixed height and internal scrolling */}
             <div className="flex-1 flex flex-col min-h-0 bg-gray-900 rounded-lg m-4 pb-4">
               <div className="flex-1 overflow-hidden">
-                <RealtimeCodeEditor
-                  isGenerating={isGenerating}
-                  generatedFiles={generatedFiles}
+              <RealtimeCodeEditor
+                isGenerating={isGenerating}
+                generatedFiles={generatedFiles}
                   className="h-full overflow-auto"
-                />
+              />
               </div>
               
               {/* Auto Error Correction */}
@@ -1716,13 +1988,16 @@ export default Footer;`,
           {viewMode === 'preview' && (
             <div className="flex-1 flex flex-col min-w-0 h-full">
               <div className="flex-1 bg-gray-900 rounded-lg m-4 pb-4 overflow-hidden">
-                <SandboxPreview
-                  sandboxId={sandboxId}
-                  port={previewPort}
-                  type={previewType}
-                  isLoading={isPreviewLoading}
-                  previewUrl={previewUrl}
-                />
+              <SandboxPreview
+                sandboxId={sandboxId}
+                port={previewPort}
+                type={previewType}
+                isLoading={isPreviewLoading}
+                previewUrl={previewUrl}
+                  onRefresh={handlePreviewRefresh}
+                  onToggleConsole={handleToggleConsole}
+                  onOpenInNewTab={handleOpenInNewTab}
+              />
               </div>
             </div>
           )}
