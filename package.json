@@ -23,6 +23,7 @@
     "@radix-ui/react-navigation-menu": "^1.2.14",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-switch": "^1.2.6",
+    "@supabase/supabase-js": "^2.57.2",
     "@types/react-syntax-highlighter": "^15.5.13",
     "ai": "^5.0.0",
     "autoprefixer": "^10.4.21",

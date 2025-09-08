@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import LovableInterface from '@/components/LovableInterface';
 import { SearchParamsProvider, useSearchParamsContext } from '@/components/SearchParamsProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { supabaseBrowser } from '@/lib/supabase';
 import MermaidDiagram from '@/components/MermaidDiagram';
 import CodeApplicationProgress from '@/components/CodeApplicationProgress';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -3813,18 +3814,121 @@ function LoadingSpinner() {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        if (!supabaseBrowser) {
+          setIsAuthenticated(false);
+          return;
+        }
+
+        const { data: { session } } = await supabaseBrowser.auth.getSession();
+        setIsAuthenticated(!!session);
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange((event, session) => {
+          setIsAuthenticated(!!session);
+        });
+
+        return () => subscription.unsubscribe();
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated === false) {
+      router.push('/auth');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect to /auth
+  }
+
   return (
-    <ErrorBoundary 
-      showDetails={process.env.NODE_ENV === 'development'}
-      onError={(error, errorInfo) => {
-        console.error('Application Error:', error, errorInfo);
-      }}
-    >
-      <SearchParamsProvider>
-        <Suspense fallback={<LoadingSpinner />}>
-          <LovableInterface />
-        </Suspense>
-      </SearchParamsProvider>
-    </ErrorBoundary>
+    <div className="min-h-screen w-full flex items-center justify-center bg-white">
+      <div className="w-[740px]">
+        <StarterChat />
+      </div>
+    </div>
+  );
+}
+
+function StarterChat() {
+  const router = useRouter();
+  const [value, setValue] = React.useState('');
+  const [isCreating, setIsCreating] = React.useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!value.trim() || isCreating) return;
+    setIsCreating(true);
+    try {
+      // include auth token if signed in so owner_id is set
+      let headers: any = { 'Content-Type': 'application/json' };
+      try {
+        const { supabaseBrowser } = await import('@/lib/supabase');
+        const token = (await supabaseBrowser?.auth.getSession())?.data?.session?.access_token;
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch {}
+
+      const res = await fetch('/api/projects/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ title: value.trim() })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        router.push(`/projects/${data.id}`);
+      } else {
+        console.error(await res.text());
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="w-full">
+      <div className="flex items-center gap-3 h-[30px] rounded-full border border-gray-300 px-3 shadow-sm">
+        <button
+          type="button"
+          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100"
+          title="Connect Supabase"
+          onClick={() => window.open('/api/supabase/connect', '_self')}
+        >
+          +
+        </button>
+        <input
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          placeholder="Describe what you want to build..."
+          className="flex-1 h-full outline-none text-sm"
+        />
+        <button
+          type="submit"
+          disabled={!value.trim() || isCreating}
+          className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center disabled:opacity-50"
+          title="Create Project"
+        >
+          ↑
+        </button>
+      </div>
+    </form>
   );
 }

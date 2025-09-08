@@ -17,6 +17,7 @@ interface RealtimeCodeEditorProps {
   isGenerating: boolean;
   generatedFiles: CodeFile[];
   onFileSelect?: (file: CodeFile) => void;
+  onFilesChange?: (files: CodeFile[]) => void;
   className?: string;
 }
 
@@ -24,6 +25,7 @@ const RealtimeCodeEditor: React.FC<RealtimeCodeEditorProps> = ({
   isGenerating,
   generatedFiles,
   onFileSelect,
+  onFilesChange,
   className = ''
 }) => {
   const [selectedFile, setSelectedFile] = useState<CodeFile | null>(null);
@@ -110,6 +112,17 @@ const RealtimeCodeEditor: React.FC<RealtimeCodeEditorProps> = ({
   const handleFileClick = (file: CodeFile) => {
     setSelectedFile(file);
     onFileSelect?.(file);
+  };
+
+  const handleContentEdit = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (!selectedFile) return;
+    const next = streamingContent;
+    setStreamingContent(e.target.value);
+    // propagate
+    const updated = generatedFiles.map(f =>
+      f.path === selectedFile.path ? { ...f, content: e.target.value, status: 'complete' } : f
+    );
+    onFilesChange?.(updated);
   };
 
   return (
@@ -200,22 +213,13 @@ const RealtimeCodeEditor: React.FC<RealtimeCodeEditorProps> = ({
 
             {/* Code Content */}
             <div className="flex-1 overflow-auto" ref={editorRef}>
-              <SyntaxHighlighter
-                language={getLanguageFromPath(selectedFile.path)}
-                style={oneDark}
-                customStyle={{
-                  margin: 0,
-                  padding: '1rem',
-                  background: 'transparent',
-                  fontSize: '14px',
-                  lineHeight: '1.5',
-                }}
-                showLineNumbers={true}
-                wrapLines={true}
-                wrapLongLines={true}
-              >
-                {streamingContent || '// Code will appear here...'}
-              </SyntaxHighlighter>
+              {/* Editable textarea for now to enable autosave; keep syntax highlighter later if needed */}
+              <textarea
+                value={streamingContent}
+                onChange={handleContentEdit}
+                className="w-full h-full p-4 bg-transparent text-gray-100 font-mono text-sm outline-none"
+                spellCheck={false}
+              />
               
               {isStreaming && (
                 <div className="px-4 pb-4">

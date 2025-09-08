@@ -4,13 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { globalKeyFix } from '../lib/globalKeyFix';
 import {
   Send,
-  Sparkles,
   Code2,
   Eye,
   BookTemplate,
   Rocket,
   GitBranch,
-  Settings,
   X,
   Save,
   History,
@@ -21,8 +19,7 @@ import {
   Globe,
   Zap,
   ShoppingCart,
-  User,
-  AlertTriangle
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RealtimeCodeEditor from './RealtimeCodeEditor';
@@ -33,6 +30,7 @@ import PreviewControls from './PreviewControls';
 import ErrorRecoverySystem from './ErrorRecoverySystem';
 import VersionControlPanel from './VersionControlPanel';
 import IssueDetection from './IssueDetection';
+import { supabaseBrowser } from '@/lib/supabase';
 
 // Custom Chat Input Component
 interface CustomChatInputProps {
@@ -53,8 +51,7 @@ const CustomChatInput: React.FC<CustomChatInputProps> = ({
   isGenerating = false
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isPublic, setIsPublic] = useState(false);
+  // Simplified input: remove extra controls
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -72,30 +69,23 @@ const CustomChatInput: React.FC<CustomChatInputProps> = ({
     }
   };
 
-  const handleFileUpload = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      // Handle file upload logic here
-      console.log('Files selected:', files);
-    }
-  };
+  // Removed file upload and extra actions
 
   return (
     <form
       onSubmit={onSubmit}
-      className="group flex flex-col gap-2 p-3 w-full rounded-3xl border border-gray-300 bg-gray-100 text-base shadow-xl transition-all duration-150 ease-in-out focus-within:border-gray-400 hover:border-gray-400 focus-within:hover:border-gray-400"
+      className="group grid grid-cols-[1fr_auto] [grid-template-areas:'primary_trailing'] items-center w-full p-2.5 rounded-[28px] bg-white dark:bg-neutral-800 text-base shadow-lg"
     >
-      <div className="relative flex flex-1 items-center">
+      {/* Leading controls removed */}
+
+      {/* Primary input */}
+      <div className="-my-2.5 flex min-h-14 items-center px-1.5 [grid-area:primary]">
         <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex w-full rounded-md px-2 py-2 ring-offset-background placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none text-[16px] leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base focus-visible:ring-0 focus-visible:ring-offset-0 max-h-[200px] bg-transparent focus:bg-transparent flex-1"
+          className="w-full rounded-md px-2 py-2 placeholder:text-gray-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none text-[16px] leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base max-h-[200px] bg-transparent flex-1"
           id="chatinput"
           autoFocus
           style={{ minHeight: '80px', height: '80px' }}
@@ -105,61 +95,18 @@ const CustomChatInput: React.FC<CustomChatInputProps> = ({
         />
       </div>
 
-      <div className="flex gap-1 flex-wrap items-center">
-        {/* Plus button for attachments */}
+      {/* Trailing controls */}
+      <div className="flex items-center gap-1.5 [grid-area:trailing]">
+        {/* Send button only */}
         <button
-          type="button"
-          onClick={handleFileUpload}
-          className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors duration-100 ease-in-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-100 shadow-sm hover:bg-gray-200 hover:border-gray-400 gap-1.5 h-8 w-8 rounded-full p-0 text-gray-500 hover:text-gray-700"
+          id="chatinput-send-message-button"
+          type="submit"
+          disabled={!value.trim() || isGenerating}
+          className="composer-submit-btn composer-submit-button-color flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-white transition-opacity duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Send prompt"
         >
-          <Plus className="shrink-0 h-5 w-5 text-gray-500" />
+          <Send className="h-5 w-5" />
         </button>
-
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          id="file-upload"
-          className="hidden"
-          accept="image/jpeg,.jpg,.jpeg,image/png,.png,image/webp,.webp"
-          multiple
-          type="file"
-          onChange={handleFileChange}
-        />
-
-        {/* Public/Private toggle button */}
-        <button
-          type="button"
-          onClick={() => setIsPublic(!isPublic)}
-          className="whitespace-nowrap text-sm font-medium transition-colors duration-100 ease-in-out focus-visible:outline-none focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-gray-100 shadow-sm hover:bg-gray-200 hover:border-gray-400 px-3 py-2 flex h-8 items-center justify-center gap-1 rounded-full text-gray-500 hover:text-gray-700"
-        >
-          <div className="flex items-center gap-1 duration-200">
-            <Mic className="shrink-0 h-4 w-4" />
-            <span className="hidden md:flex">{isPublic ? 'Public' : 'Private'}</span>
-          </div>
-        </button>
-
-        {/* Menu button */}
-        <div className="ml-auto flex items-center gap-1">
-          <div className="relative flex items-center gap-1 md:gap-2">
-            <div></div>
-            <button
-              type="button"
-              className="gap-2 whitespace-nowrap text-sm font-medium ease-in-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none border border-gray-300 bg-gray-100 shadow-sm hover:bg-gray-200 hover:border-gray-400 relative z-10 flex rounded-full p-0 text-gray-500 transition-opacity duration-150 disabled:cursor-not-allowed disabled:opacity-50 items-center justify-center h-8 w-8"
-            >
-              <MoreVertical className="shrink-0 relative z-10 h-5 w-5" />
-            </button>
-
-            {/* Send button */}
-            <button
-              id="chatinput-send-message-button"
-              type="submit"
-              disabled={!value.trim() || isGenerating}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-900 transition-opacity duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Send className="shrink-0 h-6 w-6 text-white" />
-            </button>
-          </div>
-        </div>
       </div>
     </form>
   );
@@ -232,7 +179,7 @@ const RealtimeWebsiteAnalyzer: React.FC<{
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
+            <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -416,11 +363,11 @@ const SettingsModal: React.FC<{
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+            <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Settings className="w-5 h-5 text-white" />
+                    <Code2 className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Settings & Tools</h2>
@@ -473,7 +420,7 @@ const SettingsModal: React.FC<{
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
-                      { name: 'Landing Page', description: 'Modern landing page with hero section', icon: Sparkles },
+                      { name: 'Landing Page', description: 'Modern landing page with hero section', icon: Code2 },
                       { name: 'Dashboard', description: 'Admin dashboard with charts', icon: Zap },
                       { name: 'E-commerce', description: 'Online store template', icon: ShoppingCart },
                       { name: 'Blog', description: 'Content management system', icon: FileText },
@@ -578,7 +525,11 @@ interface GeneratedFile {
   status: 'generating' | 'complete' | 'error';
 }
 
-const LovableInterface: React.FC = () => {
+type LovableInterfaceProps = {
+  projectId?: string;
+};
+
+const LovableInterface: React.FC<LovableInterfaceProps> = ({ projectId }) => {
   // Helper function to generate unique message IDs
   // Use a ref to ensure atomic counter updates
   const messageIdCounterRef = useRef(0);
@@ -686,9 +637,10 @@ The code is being generated now and will appear in the editor. You'll see each f
   const [showVersionControl, setShowVersionControl] = useState(false);
   const [activeTab, setActiveTab] = useState<'history' | 'branches' | 'changes'>('history');
   const [currentProject, setCurrentProject] = useState('my-lovable-app');
+  const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [currentError, setCurrentError] = useState<any>(null);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [viewMode, setViewMode] = useState<'code' | 'preview'>('code'); // Toggle between code and preview
+  const [viewMode, setViewMode] = useState<'code' | 'preview'>('preview'); // Toggle between code and preview
   const [codeErrors, setCodeErrors] = useState<any[]>([]);
   const [showSiteAnalyzer, setShowSiteAnalyzer] = useState(false);
   
@@ -701,6 +653,32 @@ The code is being generated now and will appear in the editor. You'll see each f
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Realtime: subscribe to file updates for this project and patch editor state
+  useEffect(() => {
+    if (!projectId || !supabaseBrowser) return;
+    const channel = supabaseBrowser
+      .channel(`files-${projectId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'files',
+        filter: `project_id=eq.${projectId}`
+      }, (payload: any) => {
+        if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+          const row = payload.new;
+          const language = row.path.endsWith('.tsx') || row.path.endsWith('.ts') ? 'tsx' : row.path.endsWith('.jsx') ? 'jsx' : row.path.endsWith('.css') ? 'css' : 'text';
+          setGeneratedFiles(prev => {
+            const idx = prev.findIndex(f => f.path === row.path);
+            const gf: GeneratedFile = { path: row.path, content: row.content, language, status: 'complete' };
+            if (idx >= 0) { const copy = prev.slice(); copy[idx] = gf; return copy; }
+            return [...prev, gf];
+          });
+        }
+      })
+      .subscribe();
+    return () => { supabaseBrowser.removeChannel(channel); };
+  }, [projectId]);
 
   // Issue Detection Functions
   const detectIssues = () => {
@@ -963,6 +941,19 @@ Please fix this issue by applying the suggested fix or providing an alternative 
             }
           } catch (e) {
             console.error('Sandbox apply error:', e);
+          }
+
+          // Persist files to Supabase (if project provided)
+          try {
+            if (projectId) {
+              await fetch('/api/files/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId, files: finalFiles.map(f => ({ path: f.path, content: f.content })) })
+              });
+            }
+          } catch (e) {
+            console.error('Persist files error:', e);
           }
 
           // Switch to real sandbox URL and show loading until ready
@@ -2052,17 +2043,37 @@ export default App;`,
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen w-screen overflow-x-hidden bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between">
+      <header className="bg-white px-6 py-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">Lovable</h1>
+            {isEditingProjectName ? (
+              <input
+                type="text"
+                value={currentProject}
+                onChange={(e) => setCurrentProject(e.target.value)}
+                onBlur={() => setIsEditingProjectName(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setIsEditingProjectName(false);
+                  } else if (e.key === 'Escape') {
+                    setIsEditingProjectName(false);
+                  }
+                }}
+                className="text-xl font-bold text-gray-900 bg-transparent border-b-2 border-purple-500 focus:outline-none px-1"
+                autoFocus
+              />
+            ) : (
+              <h1
+                className="text-xl font-bold text-gray-900 cursor-pointer hover:text-purple-600 transition-colors"
+                onClick={() => setIsEditingProjectName(true)}
+                title="Click to edit project name"
+              >
+                {currentProject}
+              </h1>
+            )}
           </div>
-          <div className="text-sm text-gray-500">AI Web App Builder</div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -2134,22 +2145,6 @@ export default App;`,
             <span className="hidden sm:inline">Deploy</span>
           </button>
 
-          <button
-            onClick={detectIssues}
-            className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Detect Issues"
-          >
-            <AlertTriangle className="w-4 h-4" />
-            <span className="hidden sm:inline">Issues</span>
-          </button>
-
-          <button
-            onClick={() => setShowSettings(true)}
-            className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Settings & Tools"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
 
           {/* Preview Controls - Only show when in preview mode */}
           {viewMode === 'preview' && (
@@ -2167,9 +2162,9 @@ export default App;`,
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden h-full">
+      <div className="flex-1 flex overflow-hidden h-full w-screen px-0 mr-0 gap-0">
         {/* Chat Panel - Fixed 30% width */}
-        <div className="w-[30%] flex flex-col bg-white border-r border-gray-200 flex-shrink-0 h-full">
+        <div className="basis-[30%] grow-0 shrink-0 flex flex-col bg-white border-r border-gray-200 h-full">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             <AnimatePresence mode="wait">
@@ -2197,33 +2192,10 @@ export default App;`,
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Prompts */}
-          {messages.length <= 1 && (
-            <div className="px-6 py-3 border-t border-gray-100">
-              <p className="text-sm text-gray-600 mb-3">Try these examples:</p>
-              <div className="grid grid-cols-2 gap-2">
-                {quickPrompts.map((prompt, index) => {
-                  const promptKey = globalKeyFix(`prompt-${index}`);
-                  // Debug logging to catch empty keys
-                  if (!promptKey || promptKey.trim() === '') {
-                    console.error('Empty prompt key detected:', { prompt, index, promptKey });
-                  }
-                  return (
-                  <button
-                      key={promptKey}
-                    onClick={() => setInputValue(prompt)}
-                    className="text-left p-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-                  >
-                    {prompt}
-                  </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Quick Prompts removed as requested */}
 
           {/* Custom Chat Input Area */}
-          <div className="p-6 border-t border-gray-200">
+          <div className="p-6">
             <CustomChatInput
                   value={inputValue}
               onChange={setInputValue}
@@ -2239,13 +2211,13 @@ export default App;`,
         </div>
 
 
-        {/* Code Editor Panel and Preview - Fixed height to match chat panel */}
-        <div className="flex-1 flex min-w-0 h-full">
+        {/* Code Editor Panel and Preview - Right side 70% */}
+        <div className="basis-[70%] grow-0 shrink-0 flex min-w-0 h-full mr-0 pr-0">
           {/* Code Editor - Takes full width in code mode, hidden in preview mode */}
           <div className={"flex flex-col min-w-0 h-full " + (viewMode === 'code' ? "flex-1" : "hidden")}>
             {/* Error Recovery */}
             {currentError && (
-              <div className="p-4 border-b border-gray-200 flex-shrink-0">
+              <div className="p-4 flex-shrink-0">
                 <ErrorRecoverySystem
                   error={currentError}
                   onRetry={handleErrorRetry}
@@ -2274,7 +2246,7 @@ export default App;`,
                     onClick={(e) => e.stopPropagation()}
                   >
                     {/* Modal Header */}
-                    <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+                    <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -2349,18 +2321,33 @@ export default App;`,
             </AnimatePresence>
 
             {/* Code Editor Container with fixed height and internal scrolling */}
-            <div className="flex-1 flex flex-col min-h-0 bg-gray-900 rounded-lg m-4 pb-4">
+            <div className="flex-1 flex flex-col min-h-0 bg-gray-900 rounded-xl m-0 pb-4 overflow-hidden">
               <div className="flex-1 overflow-hidden">
               <RealtimeCodeEditor
                 isGenerating={isGenerating}
                 generatedFiles={generatedFiles}
-                  className="h-full overflow-auto"
+                onFilesChange={(files: any) => {
+                  setGeneratedFiles(files);
+                  if (projectId) {
+                    if ((window as any).__autosaveTimer) clearTimeout((window as any).__autosaveTimer);
+                    (window as any).__autosaveTimer = setTimeout(async () => {
+                      try {
+                        await fetch('/api/files/save', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ projectId, files: files.map((f: any) => ({ path: f.path, content: f.content })) })
+                        });
+                      } catch (e) { console.error('Autosave error:', e); }
+                    }, 700);
+                  }
+                }}
+                className="h-full overflow-auto"
               />
               </div>
               
               {/* Auto Error Correction */}
               {generatedFiles.length > 0 && (
-                <div className="border-t border-gray-700 p-4 flex-shrink-0">
+                <div className="p-4 flex-shrink-0">
                   <AutoErrorCorrection
                     generatedCode={generatedFiles.find(f => f.path.endsWith('.tsx') || f.path.endsWith('.jsx'))?.content || ''}
                     onCodeCorrected={handleCodeCorrected}
@@ -2374,7 +2361,7 @@ export default App;`,
           {/* Preview Panel - Shows in preview mode and takes full width with same styling */}
           {viewMode === 'preview' && (
             <div className="flex-1 flex flex-col min-w-0 h-full">
-              <div className="flex-1 bg-gray-900 rounded-lg m-4 pb-4 overflow-hidden">
+              <div className="flex-1 bg-gray-900 rounded-xl m-0 pb-0 overflow-hidden">
               <SandboxPreview
                 sandboxId={sandboxId}
                 port={previewPort}
