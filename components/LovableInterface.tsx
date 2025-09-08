@@ -27,9 +27,8 @@ import EnhancedChatMessage from './EnhancedChatMessage';
 import ProjectTemplates from './ProjectTemplates';
 import DeploymentOptions from './DeploymentOptions';
 import PreviewControls from './PreviewControls';
-import ErrorRecoverySystem from './ErrorRecoverySystem';
 import VersionControlPanel from './VersionControlPanel';
-import IssueDetection from './IssueDetection';
+import SandboxPreview from './SandboxPreview';
 import { supabaseBrowser } from '@/lib/supabase';
 
 // Custom Chat Input Component
@@ -495,8 +494,6 @@ const SettingsModal: React.FC<{
     </AnimatePresence>
   );
 };
-import SandboxPreview from './SandboxPreview';
-import AutoErrorCorrection from './AutoErrorCorrection';
 
 interface Message {
   id: string;
@@ -638,15 +635,9 @@ The code is being generated now and will appear in the editor. You'll see each f
   const [activeTab, setActiveTab] = useState<'history' | 'branches' | 'changes'>('history');
   const [currentProject, setCurrentProject] = useState('my-lovable-app');
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
-  const [currentError, setCurrentError] = useState<any>(null);
-  const [isRetrying, setIsRetrying] = useState(false);
   const [viewMode, setViewMode] = useState<'code' | 'preview'>('preview'); // Toggle between code and preview
-  const [codeErrors, setCodeErrors] = useState<any[]>([]);
   const [showSiteAnalyzer, setShowSiteAnalyzer] = useState(false);
   
-  // Issue Detection State
-  const [detectedIssues, setDetectedIssues] = useState<any[]>([]);
-  const [showIssueDetection, setShowIssueDetection] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom of messages
@@ -680,72 +671,8 @@ The code is being generated now and will appear in the editor. You'll see each f
     return () => { supabaseBrowser.removeChannel(channel); };
   }, [projectId]);
 
-  // Issue Detection Functions
-  const detectIssues = () => {
-    // Simulate issue detection - in a real app, this would analyze the code
-    const mockIssues = [
-      {
-        id: 'issue-1',
-        type: 'import',
-        line: 1,
-        status: 'detected',
-        description: 'Missing React useState import',
-        suggestedFix: "import { useState } from 'react';",
-        file: 'src/App.tsx'
-      },
-      {
-        id: 'issue-2',
-        type: 'import',
-        line: 13,
-        status: 'detected',
-        description: 'Missing React useState import',
-        suggestedFix: "import { useState } from 'react';",
-        file: 'src/components/TodoList.tsx'
-      }
-    ];
-    
-    setDetectedIssues(mockIssues);
-    setShowIssueDetection(true);
-  };
 
-  const handleAskToFix = (issue: any) => {
-    // Create a detailed error message for the AI
-    const errorMessage = `I found an issue in my code that needs to be fixed:
 
-**Issue Details:**
-- Type: ${issue.type}
-- Location: Line ${issue.line} in ${issue.file || 'unknown file'}
-- Description: ${issue.description}
-- Suggested Fix: ${issue.suggestedFix}
-
-Please fix this issue by applying the suggested fix or providing an alternative solution.`;
-
-    // Auto-submit to chat
-    setInputValue(errorMessage);
-    
-    // Mark issue as pending
-    setDetectedIssues(prev => 
-      prev.map(i => 
-        i.id === issue.id 
-          ? { ...i, status: 'pending' }
-          : i
-      )
-    );
-    
-    // Auto-submit after a short delay to ensure the input is set
-    setTimeout(() => {
-      const formEvent = new Event('submit') as any;
-      formEvent.preventDefault = () => {};
-      handleSendMessage();
-    }, 100);
-  };
-
-  const handleDismissIssue = (issueId: string) => {
-    setDetectedIssues(prev => prev.filter(issue => issue.id !== issueId));
-    if (detectedIssues.length === 1) {
-      setShowIssueDetection(false);
-    }
-  };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isGenerating) return;
@@ -1967,19 +1894,6 @@ export default App;`,
   };
 
 
-  const handleErrorRetry = async (_strategy?: string) => {
-    setIsRetrying(true);
-    try {
-      // Simulate retry logic based on strategy
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setCurrentError(null);
-      // Retry the last failed operation
-    } catch (_error) {
-      // Handle retry failure
-    } finally {
-      setIsRetrying(false);
-    }
-  };
 
   const handleVersionControlAction = {
     onRevert: (commitId: string) => {
@@ -2011,36 +1925,7 @@ export default App;`,
     setShowSiteAnalyzer(false);
   };
 
-  const handleCodeCorrected = (correctedCode: string) => {
-    // Update the generated files with corrected code
-    setGeneratedFiles(prev => prev.map(file => {
-      if (file.path.endsWith('.tsx') || file.path.endsWith('.jsx')) {
-        return { ...file, content: correctedCode };
-      }
-      return file;
-    }));
-    
-    // Show success message
-    console.log('Code automatically corrected!');
-  };
 
-  const handleErrorsDetected = (errors: any[]) => {
-    setCodeErrors(errors);
-    if (errors.length > 0) {
-      console.log(`Detected ${errors.length} code errors - auto-fixing...`);
-      // Auto-show issue detection panel when errors arise
-      setDetectedIssues(errors.map((e: any, idx: number) => ({
-        id: `vite-${idx}-${Date.now()}`,
-        type: 'vite',
-        line: e.line || 1,
-        status: 'detected',
-        description: e.message || 'Vite/Tailwind error',
-        suggestedFix: 'Ask AI to fix',
-        file: e.file || 'unknown'
-      })));
-      setShowIssueDetection(true);
-    }
-  };
 
   return (
     <div className="h-screen w-screen overflow-x-hidden bg-gray-50 flex flex-col">
@@ -2215,17 +2100,6 @@ export default App;`,
         <div className="basis-[70%] grow-0 shrink-0 flex min-w-0 h-full mr-0 pr-0">
           {/* Code Editor - Takes full width in code mode, hidden in preview mode */}
           <div className={"flex flex-col min-w-0 h-full " + (viewMode === 'code' ? "flex-1" : "hidden")}>
-            {/* Error Recovery */}
-            {currentError && (
-              <div className="p-4 flex-shrink-0">
-                <ErrorRecoverySystem
-                  error={currentError}
-                  onRetry={handleErrorRetry}
-                  onDismiss={() => setCurrentError(null)}
-                  isRetrying={isRetrying}
-                />
-              </div>
-            )}
 
             {/* Git Modal */}
             <AnimatePresence>
@@ -2345,16 +2219,6 @@ export default App;`,
               />
               </div>
               
-              {/* Auto Error Correction */}
-              {generatedFiles.length > 0 && (
-                <div className="p-4 flex-shrink-0">
-                  <AutoErrorCorrection
-                    generatedCode={generatedFiles.find(f => f.path.endsWith('.tsx') || f.path.endsWith('.jsx'))?.content || ''}
-                    onCodeCorrected={handleCodeCorrected}
-                    onErrorsDetected={handleErrorsDetected}
-                  />
-                </div>
-              )}
             </div>
           </div>
 
@@ -2408,13 +2272,6 @@ export default App;`,
 
       </AnimatePresence>
 
-      {/* Issue Detection Component */}
-      <IssueDetection
-        issues={detectedIssues}
-        onAskToFix={handleAskToFix}
-        onDismiss={handleDismissIssue}
-        isVisible={showIssueDetection}
-      />
     </div>
   );
 };
