@@ -1,13 +1,17 @@
 'use client';
 
-// Import key validation in development
-if (process.env.NODE_ENV === 'development') {
-  import('../lib/keyValidation');
-}
-
 import { safeKey, safeKeyWithIndex } from '../lib/keyReplacer';
 import { logRenderKeys, assertUniqueKeys } from '../lib/keyValidation';
 import { globalKeyFix, safeKeyWithIndex as globalSafeKeyWithIndex } from '../lib/globalKeyFix';
+
+// Import key validation in development (lazy load)
+if (process.env.NODE_ENV === 'development') {
+  import('../lib/keyValidation').then(() => {
+    console.log('[page] Key validation loaded for development');
+  }).catch(err => {
+    console.warn('[page] Failed to load key validation:', err);
+  });
+}
 
 import React, { Suspense, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';

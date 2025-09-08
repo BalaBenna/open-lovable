@@ -70,10 +70,7 @@ function analyzeUserPreferences(messages: ConversationMessage[]): {
   };
 }
 
-declare global {
-  var sandboxState: SandboxState;
-  var conversationState: ConversationState | null;
-}
+// Global declarations are now properly typed in types/sandbox.ts and types/conversation.ts
 
 export async function POST(request: NextRequest) {
   const requestTimer = performanceMonitor.createTimer('generate-ai-code-stream');
@@ -134,15 +131,21 @@ export async function POST(request: NextRequest) {
     global.conversationState.context.messages.push(userMessage);
     
     // Clean up old messages to prevent unbounded growth
-    if (global.conversationState.context.messages.length > 20) {
-      // Keep only the last 15 messages
-      global.conversationState.context.messages = global.conversationState.context.messages.slice(-15);
-      console.log('[generate-ai-code-stream] Trimmed conversation history to prevent context overflow');
+    if (global.conversationState!.context.messages.length > appConfig.ui.maxChatMessages) {
+      // Keep only the last configured number of messages
+      const keepCount = Math.floor(appConfig.ui.maxChatMessages * 0.75); // Keep 75% of max
+      global.conversationState!.context.messages = global.conversationState!.context.messages.slice(-keepCount);
+      console.log(`[generate-ai-code-stream] Trimmed conversation history to ${keepCount} messages to prevent memory overflow`);
     }
-    
+
     // Clean up old edits
-    if (global.conversationState.context.edits.length > 10) {
-      global.conversationState.context.edits = global.conversationState.context.edits.slice(-8);
+    if (global.conversationState!.context.edits.length > 20) {
+      global.conversationState!.context.edits = global.conversationState!.context.edits.slice(-15);
+    }
+
+    // Clean up old major changes
+    if (global.conversationState!.context.projectEvolution.majorChanges.length > 10) {
+      global.conversationState!.context.projectEvolution.majorChanges = global.conversationState!.context.projectEvolution.majorChanges.slice(-5);
     }
     
     // Debug: Show a sample of actual file content
