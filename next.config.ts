@@ -2,10 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  
+
   // Performance optimizations
   experimental: {
-    optimizePackageImports: ['lucide-react', 'framer-motion'],
+    optimizePackageImports: ['lucide-react', 'framer-motion', 'react-icons', 'react-syntax-highlighter'],
     turbo: {
       rules: {
         '*.svg': {
@@ -14,7 +14,12 @@ const nextConfig: NextConfig = {
         },
       },
     },
+    optimizeCss: true,
+    scrollRestoration: true,
   },
+
+  // Enable SWC minification for better performance
+  swcMinify: true,
   
   // Compiler optimizations
   compiler: {
@@ -42,24 +47,44 @@ const nextConfig: NextConfig = {
     },
   }),
   
-  // Headers for better caching
+  // Compression and performance headers
+  compress: true,
+
+  // Headers for better caching and performance
   async headers() {
     return [
       {
-        source: '/api/performance-analytics',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=60, stale-while-revalidate=30',
-          },
-        ],
-      },
-      {
-        source: '/api/system-health',
+        source: '/api/(.*)',
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, max-age=30, stale-while-revalidate=15',
+          },
+        ],
+      },
+      {
+        source: '/_next/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
           },
         ],
       },

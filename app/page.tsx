@@ -3,13 +3,14 @@
 import { safeKey, safeKeyWithIndex } from '../lib/keyReplacer';
 import { logRenderKeys, assertUniqueKeys } from '../lib/keyValidation';
 import { globalKeyFix, safeKeyWithIndex as globalSafeKeyWithIndex } from '../lib/globalKeyFix';
+import { logger } from '../lib/logger';
 
 // Import key validation in development (lazy load)
 if (process.env.NODE_ENV === 'development') {
   import('../lib/keyValidation').then(() => {
-    console.log('[page] Key validation loaded for development');
+    logger.info('Key validation loaded for development');
   }).catch(err => {
-    console.warn('[page] Failed to load key validation:', err);
+    logger.warn('Failed to load key validation', err);
   });
 }
 
@@ -17,7 +18,7 @@ import React, { Suspense, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import LovableInterface from '@/components/LovableInterface';
 import { SearchParamsProvider, useSearchParamsContext } from '@/components/SearchParamsProvider';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/organisms';
 import { supabaseBrowser } from '@/lib/supabase';
 import MermaidDiagram from '@/components/MermaidDiagram';
 import CodeApplicationProgress from '@/components/CodeApplicationProgress';
@@ -153,6 +154,7 @@ function HomePage() {
   const [isPreparingDesign, setIsPreparingDesign] = useState(false);
   const [targetUrl, setTargetUrl] = useState<string>('');
   const [loadingStage, setLoadingStage] = useState<'gathering' | 'planning' | 'generating' | null>(null);
+  const [planConfirmed, setPlanConfirmed] = useState(false);
   const [sandboxFiles, setSandboxFiles] = useState<Record<string, string>>({});
   const [fileStructure, setFileStructure] = useState<string>('');
   
@@ -192,6 +194,11 @@ function HomePage() {
     files: Array<{ path: string; content: string; type: string; completed: boolean }>;
     lastProcessedPosition: number;
     isEdit?: boolean;
+    // Planning phase fields
+    isPlanning?: boolean;
+    planningText?: string;
+    planningSummary?: string;
+    requiresConfirmation?: boolean;
   }>({
     isGenerating: false,
     status: '',
@@ -201,7 +208,12 @@ function HomePage() {
     isStreaming: false,
     isThinking: false,
     files: [],
-    lastProcessedPosition: 0
+    lastProcessedPosition: 0,
+    // Initialize planning fields
+    isPlanning: false,
+    planningText: '',
+    planningSummary: '',
+    requiresConfirmation: false
   });
 
   // Clear old conversation data on component mount and create/restore sandbox
@@ -216,9 +228,9 @@ function HomePage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'clear-old' })
         });
-        console.log('[home] Cleared old conversation data on mount');
+        logger.info('Cleared old conversation data on mount');
       } catch (error) {
-        console.error('[ai-sandbox] Failed to clear old conversation:', error);
+        logger.error('Failed to clear old conversation', error as Error);
         if (isMounted) {
           addChatMessage('Failed to clear old conversation data.', 'error');
         }
@@ -232,16 +244,16 @@ function HomePage() {
       setLoading(true);
       try {
         if (sandboxIdParam) {
-          console.log('[home] Attempting to restore sandbox:', sandboxIdParam);
+          logger.info('Attempting to restore sandbox', { sandboxId: sandboxIdParam });
           // For now, just create a new sandbox - you could enhance this to actually restore
           // the specific sandbox if your backend supports it
           await createSandbox(true);
         } else {
-          console.log('[home] No sandbox in URL, creating new sandbox automatically...');
+          logger.info('No sandbox in URL, creating new sandbox automatically');
           await createSandbox(true);
         }
       } catch (error) {
-        console.error('[ai-sandbox] Failed to create or restore sandbox:', error);
+        logger.error('Failed to create or restore sandbox', error as Error);
         if (isMounted) {
           addChatMessage('Failed to create or restore sandbox.', 'error');
         }
@@ -440,7 +452,7 @@ function HomePage() {
   };
 
   const createSandbox = async (fromHomeScreen = false) => {
-    console.log('[createSandbox] Starting sandbox creation...');
+    logger.info('Starting sandbox creation');
     setLoading(true);
     setShowLoadingBackground(true);
     updateStatus('Creating sandbox...', false);
@@ -455,7 +467,7 @@ function HomePage() {
       });
       
       const data = await response.json();
-      console.log('[createSandbox] Response data:', data);
+      logger.debug('Sandbox creation response data', data);
       
       if (data.success) {
         setSandboxData(data);
@@ -485,7 +497,7 @@ function HomePage() {
         // Restart Vite server to ensure it's running
         setTimeout(async () => {
           try {
-            console.log('[createSandbox] Ensuring Vite server is running...');
+            logger.info('Ensuring Vite server is running');
             const restartResponse = await fetch('/api/restart-vite', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' }
@@ -494,11 +506,11 @@ function HomePage() {
             if (restartResponse.ok) {
               const restartData = await restartResponse.json();
               if (restartData.success) {
-                console.log('[createSandbox] Vite server started successfully');
+                logger.info('Vite server started successfully');
               }
             }
           } catch (error) {
-            console.error('[createSandbox] Error starting Vite server:', error);
+            logger.error('Error starting Vite server', error as Error);
           }
         }, 2000);
         
@@ -546,7 +558,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       // Get pending packages from tool calls
       const pendingPackages = ((window as any).pendingPackages || []).filter((pkg: any) => pkg && typeof pkg === 'string');
       if (pendingPackages.length > 0) {
-        console.log('[applyGeneratedCode] Sending packages from tool calls:', pendingPackages);
+        logger.info('Sending packages from tool calls', { packages: pendingPackages });
         // Clear pending packages after use
         (window as any).pendingPackages = [];
       }
@@ -722,7 +734,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                 // Force reload by adding a timestamp parameter
                 const separator = currentSrc.includes('?') ? '&' : '?';
                 iframeRef.current.src = currentSrc + separator + '_t=' + Date.now();
-                console.log('[Preview] Refreshing iframe with new content:', iframeRef.current.src);
+                logger.debug('Refreshing iframe with new content', { url: iframeRef.current.src });
               }
             }, appConfig.codeApplication.defaultRefreshDelay);
           }
@@ -789,11 +801,13 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         }
         
         log('Code applied successfully!');
-        console.log('[applyGeneratedCode] Response data:', data);
-        console.log('[applyGeneratedCode] Debug info:', (data as any).debug);
-        console.log('[applyGeneratedCode] Current sandboxData:', sandboxData);
-        console.log('[applyGeneratedCode] Current iframe element:', iframeRef.current);
-        console.log('[applyGeneratedCode] Current iframe src:', iframeRef.current?.src);
+        logger.debug('Code application response data', {
+          data,
+          debug: (data as any).debug,
+          sandboxData,
+          iframeElement: iframeRef.current,
+          iframeSrc: iframeRef.current?.src
+        });
         
         if (results.filesCreated?.length > 0) {
           setConversationContext(prev => ({
@@ -841,14 +855,14 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           // Skip build test for now - it's causing errors with undefined activeSandbox
           // The build test was trying to access global.activeSandbox from the frontend,
           // but that's only available in the backend API routes
-          console.log('[build-test] Skipping build test - would need API endpoint');
+          logger.info('Skipping build test - would need API endpoint');
           
           // Force iframe refresh after applying code
           const refreshDelay = appConfig.codeApplication.defaultRefreshDelay; // Allow Vite to process changes
           
           setTimeout(() => {
             if (iframeRef.current && sandboxData?.url) {
-              console.log('[home] Refreshing iframe after code application...');
+              logger.info('Refreshing iframe after code application');
               
               // Method 1: Change src with timestamp
               const urlWithTimestamp = sandboxData.url + "?t=" + Date.now() + "&applied=true";
@@ -859,10 +873,10 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                 try {
                   if (iframeRef.current?.contentWindow) {
                     iframeRef.current.contentWindow.location.reload();
-                    console.log('[home] Force reloaded iframe content');
+                    logger.debug('Force reloaded iframe content');
                   }
                 } catch (e) {
-                  console.log('[home] Could not reload iframe (cross-origin):', e);
+                  logger.warn('Could not reload iframe (cross-origin)', e as Error);
                 }
               }, 1000);
             }
@@ -1473,7 +1487,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
       
       // Check loading stage FIRST to prevent showing old sandbox
       // Don't show loading overlay for edits
-      if (loadingStage || (generationProgress.isGenerating && !generationProgress.isEdit)) {
+      if (loadingStage || (generationProgress.isGenerating && !generationProgress.isEdit) || generationProgress.isPlanning) {
         return (
           <div className="relative w-full h-full bg-gray-50 flex items-center justify-center">
             <div className="text-center">
@@ -1483,13 +1497,63 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               <h3 className="text-xl font-semibold text-gray-800 mb-2">
                 {loadingStage === 'gathering' && 'Gathering website information...'}
                 {loadingStage === 'planning' && 'Planning your design...'}
+                {generationProgress.isPlanning && 'Analyzing your request...'}
                 {(loadingStage === 'generating' || generationProgress.isGenerating) && 'Generating your application...'}
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 text-sm mb-6">
                 {loadingStage === 'gathering' && 'Analyzing the website structure and content'}
                 {loadingStage === 'planning' && 'Creating the optimal React component architecture'}
+                {generationProgress.isPlanning && 'Creating a comprehensive implementation plan for your request'}
                 {(loadingStage === 'generating' || generationProgress.isGenerating) && 'Writing clean, modern code for your app'}
               </p>
+
+              {/* Planning confirmation UI - only show if planning is complete */}
+              {generationProgress.requiresConfirmation && !generationProgress.isPlanning && (
+                <div className="mt-6 space-y-4">
+                  <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
+                    <h4 className="text-lg font-semibold text-gray-800 mb-3">Ready to Implement?</h4>
+                    <p className="text-gray-600 text-sm mb-4">
+                      I've analyzed your request and created a comprehensive plan. The implementation will include:
+                    </p>
+                    {generationProgress.planningSummary && (
+                      <div className="bg-gray-50 rounded p-3 mb-4 text-left">
+                        <p className="text-gray-700 text-sm">{generationProgress.planningSummary}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={() => {
+                          setPlanConfirmed(true);
+                          setGenerationProgress(prev => ({
+                            ...prev,
+                            requiresConfirmation: false,
+                            isGenerating: true,
+                            status: '🚀 Starting implementation...'
+                          }));
+                        }}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        ✅ Proceed with Implementation
+                      </button>
+                      <button
+                        onClick={() => {
+                          setGenerationProgress(prev => ({
+                            ...prev,
+                            requiresConfirmation: false,
+                            isPlanning: false,
+                            isGenerating: false,
+                            status: 'Planning cancelled by user'
+                          }));
+                          addChatMessage('Understood! I\'ve cancelled the implementation. Feel free to ask me about something else or modify your request.', 'ai');
+                        }}
+                        className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                      >
+                        ❌ Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -1728,9 +1792,50 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
-                
+                console.log('[frontend] Received message type:', data.type, 'text length:', data.text?.length || 0, 'isPlanning:', data.isPlanning);
+
                 if (data.type === 'status') {
                   setGenerationProgress(prev => ({ ...prev, status: data.message }));
+                } else if (data.type === 'plan_start') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    status: data.message,
+                    isPlanning: true,
+                    planningText: ''
+                  }));
+                  // Add planning header to chat with clear formatting
+                  addChatMessage('📋 **Project Analysis & Implementation Plan**\n\nI\'m analyzing your request and creating a comprehensive implementation plan. This will help us build exactly what you need...\n\n---', 'ai');
+                } else if (data.type === 'plan_content') {
+                  console.log('[frontend] Received plan_content:', data.text?.substring(0, 100) + '...');
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    planningText: (prev.planningText || '') + data.text
+                  }));
+                  // Add planning content to chat - always add it regardless of content
+                  if (data.isPlanning && data.text && data.text.trim().length > 0) {
+                    console.log('[frontend] Adding planning content to chat:', data.text.trim().length, 'characters');
+                    // Don't filter planning content - it's important for user understanding
+                    addChatMessage(data.text.trim(), 'ai');
+                  }
+                } else if (data.type === 'plan_complete') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    isPlanning: false,
+                    status: data.message,
+                    planningSummary: data.planningSummary,
+                    requiresConfirmation: data.requiresConfirmation
+                  }));
+                  // Add confirmation prompt to chat
+                  addChatMessage('\n---\n\n✅ **Analysis Complete!**\n\n' + data.message + '\n\n*Summary: ' + data.planningSummary + '*\n\nShould I proceed with implementing this plan?', 'ai');
+                } else if (data.type === 'implementation_start') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    status: data.message,
+                    isPlanning: false,
+                    requiresConfirmation: false
+                  }));
+                  // Add implementation start message
+                  addChatMessage('\n🚀 **Starting Implementation**\n\nGreat! I\'m now implementing the plan we discussed. I\'ll start building the components and features we outlined...', 'ai');
                 } else if (data.type === 'thinking') {
                   setGenerationProgress(prev => ({ 
                     ...prev, 
@@ -1746,16 +1851,24 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                 } else if (data.type === 'conversation') {
                   // Add conversational text to chat only if it's not code
                   let text = data.text || '';
-                  
+
                   // Remove package tags from the text
                   text = text.replace(/<package>[^<]*<\/package>/g, '');
                   text = text.replace(/<packages>[^<]*<\/packages>/g, '');
-                  
-                  // Filter out any XML tags and file content that slipped through
-                  if (!text.includes('<file') && !text.includes('import React') && 
-                      !text.includes('export default') && !text.includes('className=') &&
-                      text.trim().length > 0) {
+
+                  // Allow planning-related content and important AI responses
+                  const isPlanningContent = text.includes('**') || text.includes('##') || text.includes('1.') || text.includes('2.') || text.includes('3.') || text.includes('What This') || text.includes('Design Inspiration') || text.includes('Technical Requirements') || text.includes('Implementation Plan');
+                  const isImportantResponse = text.includes('Here\'s') || text.includes('I\'ll') || text.includes('Let me') || text.includes('Okay') || text.includes('I can') || text.length > 20;
+
+                  // Filter out XML tags and file content, but allow planning content
+                  if ((isPlanningContent || isImportantResponse) ||
+                      (!text.includes('<file') && !text.includes('import React') &&
+                       !text.includes('export default') && !text.includes('className=') &&
+                       text.trim().length > 0)) {
+                    console.log('[frontend] Adding conversation message to chat:', text.trim().length, 'characters, planning:', isPlanningContent, 'important:', isImportantResponse);
                     addChatMessage(text.trim(), 'ai');
+                  } else {
+                    console.log('[frontend] Filtered out conversation message:', text.trim().length, 'characters');
                   }
                 } else if (data.type === 'stream' && data.raw) {
                   setGenerationProgress(prev => {
@@ -1877,20 +1990,26 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                 } else if (data.type === 'complete') {
                   generatedCode = data.generatedCode;
                   explanation = data.explanation;
-                  
+
                   // Save the last generated code
                   setConversationContext(prev => ({
                     ...prev,
                     lastGeneratedCode: generatedCode
                   }));
-                  
-                  // Clear thinking state when generation completes
+
+                  // Clear all generation states when generation completes
                   setGenerationProgress(prev => ({
                     ...prev,
+                    isGenerating: false,
                     isThinking: false,
+                    isPlanning: false,
                     thinkingText: undefined,
-                    thinkingDuration: undefined
+                    thinkingDuration: undefined,
+                    status: '✅ Code generation complete!',
+                    requiresConfirmation: false
                   }));
+
+                  // Completion message is now sent from backend as conversation
                   
                   // Store packages to install from tool calls
                   if (data.packagesToInstall && data.packagesToInstall.length > 0) {
@@ -2308,9 +2427,50 @@ Focus on the key sections and content, making it clean and modern while preservi
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
-                
+                console.log('[frontend] Received message type:', data.type, 'text length:', data.text?.length || 0, 'isPlanning:', data.isPlanning);
+
                 if (data.type === 'status') {
                   setGenerationProgress(prev => ({ ...prev, status: data.message }));
+                } else if (data.type === 'plan_start') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    status: data.message,
+                    isPlanning: true,
+                    planningText: ''
+                  }));
+                  // Add planning header to chat with clear formatting
+                  addChatMessage('📋 **Project Analysis & Implementation Plan**\n\nI\'m analyzing your request and creating a comprehensive implementation plan. This will help us build exactly what you need...\n\n---', 'ai');
+                } else if (data.type === 'plan_content') {
+                  console.log('[frontend] Received plan_content:', data.text?.substring(0, 100) + '...');
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    planningText: (prev.planningText || '') + data.text
+                  }));
+                  // Add planning content to chat - always add it regardless of content
+                  if (data.isPlanning && data.text && data.text.trim().length > 0) {
+                    console.log('[frontend] Adding planning content to chat:', data.text.trim().length, 'characters');
+                    // Don't filter planning content - it's important for user understanding
+                    addChatMessage(data.text.trim(), 'ai');
+                  }
+                } else if (data.type === 'plan_complete') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    isPlanning: false,
+                    status: data.message,
+                    planningSummary: data.planningSummary,
+                    requiresConfirmation: data.requiresConfirmation
+                  }));
+                  // Add confirmation prompt to chat
+                  addChatMessage('\n---\n\n✅ **Analysis Complete!**\n\n' + data.message + '\n\n*Summary: ' + data.planningSummary + '*\n\nShould I proceed with implementing this plan?', 'ai');
+                } else if (data.type === 'implementation_start') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    status: data.message,
+                    isPlanning: false,
+                    requiresConfirmation: false
+                  }));
+                  // Add implementation start message
+                  addChatMessage('\n🚀 **Starting Implementation**\n\nGreat! I\'m now implementing the plan we discussed. I\'ll start building the components and features we outlined...', 'ai');
                 } else if (data.type === 'thinking') {
                   setGenerationProgress(prev => ({ 
                     ...prev, 
@@ -2326,16 +2486,24 @@ Focus on the key sections and content, making it clean and modern while preservi
                 } else if (data.type === 'conversation') {
                   // Add conversational text to chat only if it's not code
                   let text = data.text || '';
-                  
+
                   // Remove package tags from the text
                   text = text.replace(/<package>[^<]*<\/package>/g, '');
                   text = text.replace(/<packages>[^<]*<\/packages>/g, '');
-                  
-                  // Filter out any XML tags and file content that slipped through
-                  if (!text.includes('<file') && !text.includes('import React') && 
-                      !text.includes('export default') && !text.includes('className=') &&
-                      text.trim().length > 0) {
+
+                  // Allow planning-related content and important AI responses
+                  const isPlanningContent = text.includes('**') || text.includes('##') || text.includes('1.') || text.includes('2.') || text.includes('3.') || text.includes('What This') || text.includes('Design Inspiration') || text.includes('Technical Requirements') || text.includes('Implementation Plan');
+                  const isImportantResponse = text.includes('Here\'s') || text.includes('I\'ll') || text.includes('Let me') || text.includes('Okay') || text.includes('I can') || text.length > 20;
+
+                  // Filter out XML tags and file content, but allow planning content
+                  if ((isPlanningContent || isImportantResponse) ||
+                      (!text.includes('<file') && !text.includes('import React') &&
+                       !text.includes('export default') && !text.includes('className=') &&
+                       text.trim().length > 0)) {
+                    console.log('[frontend] Adding conversation message to chat:', text.trim().length, 'characters, planning:', isPlanningContent, 'important:', isImportantResponse);
                     addChatMessage(text.trim(), 'ai');
+                  } else {
+                    console.log('[frontend] Filtered out conversation message:', text.trim().length, 'characters');
                   }
                 } else if (data.type === 'stream' && data.raw) {
                   setGenerationProgress(prev => ({ 
@@ -2775,9 +2943,50 @@ Focus on the key sections and content, making it clean and modern.`;
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
-                
+                console.log('[frontend] Received message type:', data.type, 'text length:', data.text?.length || 0, 'isPlanning:', data.isPlanning);
+
                 if (data.type === 'status') {
                   setGenerationProgress(prev => ({ ...prev, status: data.message }));
+                } else if (data.type === 'plan_start') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    status: data.message,
+                    isPlanning: true,
+                    planningText: ''
+                  }));
+                  // Add planning header to chat with clear formatting
+                  addChatMessage('📋 **Project Analysis & Implementation Plan**\n\nI\'m analyzing your request and creating a comprehensive implementation plan. This will help us build exactly what you need...\n\n---', 'ai');
+                } else if (data.type === 'plan_content') {
+                  console.log('[frontend] Received plan_content:', data.text?.substring(0, 100) + '...');
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    planningText: (prev.planningText || '') + data.text
+                  }));
+                  // Add planning content to chat - always add it regardless of content
+                  if (data.isPlanning && data.text && data.text.trim().length > 0) {
+                    console.log('[frontend] Adding planning content to chat:', data.text.trim().length, 'characters');
+                    // Don't filter planning content - it's important for user understanding
+                    addChatMessage(data.text.trim(), 'ai');
+                  }
+                } else if (data.type === 'plan_complete') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    isPlanning: false,
+                    status: data.message,
+                    planningSummary: data.planningSummary,
+                    requiresConfirmation: data.requiresConfirmation
+                  }));
+                  // Add confirmation prompt to chat
+                  addChatMessage('\n---\n\n✅ **Analysis Complete!**\n\n' + data.message + '\n\n*Summary: ' + data.planningSummary + '*\n\nShould I proceed with implementing this plan?', 'ai');
+                } else if (data.type === 'implementation_start') {
+                  setGenerationProgress(prev => ({
+                    ...prev,
+                    status: data.message,
+                    isPlanning: false,
+                    requiresConfirmation: false
+                  }));
+                  // Add implementation start message
+                  addChatMessage('\n🚀 **Starting Implementation**\n\nGreat! I\'m now implementing the plan we discussed. I\'ll start building the components and features we outlined...', 'ai');
                 } else if (data.type === 'thinking') {
                   setGenerationProgress(prev => ({ 
                     ...prev, 
@@ -2793,16 +3002,24 @@ Focus on the key sections and content, making it clean and modern.`;
                 } else if (data.type === 'conversation') {
                   // Add conversational text to chat only if it's not code
                   let text = data.text || '';
-                  
+
                   // Remove package tags from the text
                   text = text.replace(/<package>[^<]*<\/package>/g, '');
                   text = text.replace(/<packages>[^<]*<\/packages>/g, '');
-                  
-                  // Filter out any XML tags and file content that slipped through
-                  if (!text.includes('<file') && !text.includes('import React') && 
-                      !text.includes('export default') && !text.includes('className=') &&
-                      text.trim().length > 0) {
+
+                  // Allow planning-related content and important AI responses
+                  const isPlanningContent = text.includes('**') || text.includes('##') || text.includes('1.') || text.includes('2.') || text.includes('3.') || text.includes('What This') || text.includes('Design Inspiration') || text.includes('Technical Requirements') || text.includes('Implementation Plan');
+                  const isImportantResponse = text.includes('Here\'s') || text.includes('I\'ll') || text.includes('Let me') || text.includes('Okay') || text.includes('I can') || text.length > 20;
+
+                  // Filter out XML tags and file content, but allow planning content
+                  if ((isPlanningContent || isImportantResponse) ||
+                      (!text.includes('<file') && !text.includes('import React') &&
+                       !text.includes('export default') && !text.includes('className=') &&
+                       text.trim().length > 0)) {
+                    console.log('[frontend] Adding conversation message to chat:', text.trim().length, 'characters, planning:', isPlanningContent, 'important:', isImportantResponse);
                     addChatMessage(text.trim(), 'ai');
+                  } else {
+                    console.log('[frontend] Filtered out conversation message:', text.trim().length, 'characters');
                   }
                 } else if (data.type === 'stream' && data.raw) {
                   setGenerationProgress(prev => {
@@ -3852,7 +4069,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated === false) {
-      router.push('/auth');
+      router.push('/landing');
+    } else if (!isLoading && isAuthenticated === true) {
+      router.push('/dashboard');
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -3861,78 +4080,29 @@ export default function Home() {
   }
 
   if (!isAuthenticated) {
-    return null; // Will redirect to /auth
+    return null; // Will redirect to /landing
   }
 
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-white">
-      <div className="w-[740px]">
-        <StarterChat />
-      </div>
-    </div>
-  );
+  return null; // Will redirect to /dashboard
 }
 
-function StarterChat() {
-  const router = useRouter();
-  const [value, setValue] = React.useState('');
-  const [isCreating, setIsCreating] = React.useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!value.trim() || isCreating) return;
-    setIsCreating(true);
-    try {
-      // include auth token if signed in so owner_id is set
-      let headers: any = { 'Content-Type': 'application/json' };
-      try {
-        const { supabaseBrowser } = await import('@/lib/supabase');
-        const token = (await supabaseBrowser?.auth.getSession())?.data?.session?.access_token;
-        if (token) headers.Authorization = `Bearer ${token}`;
-      } catch {}
-
-      const res = await fetch('/api/projects/create', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ title: value.trim() })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        router.push(`/projects/${data.id}`);
-      } else {
-        console.error(await res.text());
-      }
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
+function WelcomeMessage() {
   return (
-    <form onSubmit={handleSubmit} className="w-full">
-      <div className="flex items-center gap-3 h-[30px] rounded-full border border-gray-300 px-3 shadow-sm">
-        <button
-          type="button"
-          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100"
-          title="Connect Supabase"
-          onClick={() => window.open('/api/supabase/connect', '_self')}
-        >
-          +
-        </button>
-        <input
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          placeholder="Describe what you want to build..."
-          className="flex-1 h-full outline-none text-sm"
-        />
-        <button
-          type="submit"
-          disabled={!value.trim() || isCreating}
-          className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center disabled:opacity-50"
-          title="Create Project"
-        >
-          ↑
-        </button>
+    <div className="text-center space-y-6">
+      <h1 className="text-4xl font-bold text-gray-900">Welcome to Lovable</h1>
+      <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        Build modern applications with AI-powered development tools.
+        Sign in to get started with creating amazing projects.
+      </p>
+      <div className="bg-white p-8 rounded-lg shadow-sm border">
+        <h2 className="text-xl font-semibold mb-4">What you can do:</h2>
+        <ul className="text-left space-y-2 text-gray-700">
+          <li>• Generate React/TypeScript code with AI</li>
+          <li>• Preview applications in real-time</li>
+          <li>• Use modern development tools and frameworks</li>
+          <li>• Build and deploy applications seamlessly</li>
+        </ul>
       </div>
-    </form>
+    </div>
   );
 }

@@ -102,7 +102,7 @@ if (process.env.NODE_ENV === 'development') {
         }
       }
       
-      return originalCreateElement.apply(React, arguments);
+      return originalCreateElement.apply(React, Array.from(arguments));
     };
   }
   

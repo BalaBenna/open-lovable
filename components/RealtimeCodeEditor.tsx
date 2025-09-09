@@ -129,19 +129,43 @@ const RealtimeCodeEditor: React.FC<RealtimeCodeEditorProps> = ({
     <div className={`flex h-full bg-gray-900 rounded-lg overflow-hidden ${className}`}>
       {/* File Explorer */}
       <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
-        <div className="p-3 border-b border-gray-700">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Code2 className="w-4 h-4" />
-            Generated Files
+        <div className="p-2 border-b border-gray-700">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search files..."
+              onChange={(e) => {
+                const q = e.target.value.toLowerCase();
+                const filtered = generatedFiles.filter(f =>
+                  f.path.toLowerCase().includes(q) ||
+                  f.path.split('/').pop()?.toLowerCase().includes(q)
+                );
+                // Keep selection if still present
+                if (filtered.length > 0 && !filtered.find(f => f.path === (selectedFile?.path || ''))) {
+                  setSelectedFile(filtered[0]);
+                }
+                // Reflect filtered list to parent if provided, else maintain local view only
+                // We won't mutate parent state; we'll derive view below using local query state
+                (editorRef.current as any).__fileQuery = q;
+                // Force rerender
+                setStreamingContent(prev => prev);
+              }}
+              className="w-full px-2 py-1 rounded bg-gray-700 text-gray-100 placeholder:text-gray-400 text-sm focus:outline-none"
+            />
             {isGenerating && (
               <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
             )}
-          </h3>
+          </div>
         </div>
         
         <div className="flex-1 overflow-y-auto">
           <AnimatePresence>
-            {generatedFiles.map((file, index) => (
+            {(generatedFiles.filter(f => {
+              const q = ((editorRef.current as any)?.__fileQuery || '').toLowerCase();
+              if (!q) return true;
+              const name = f.path.split('/').pop() || '';
+              return f.path.toLowerCase().includes(q) || name.toLowerCase().includes(q);
+            })).map((file, index) => (
               <motion.div
                 key={file.path || file.name || `file-${index}-${Math.random()}`}
                 initial={{ opacity: 0, x: -20 }}

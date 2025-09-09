@@ -28,17 +28,15 @@ export const appConfig = {
   // AI Model Configuration
   ai: {
     // Default AI model
-    defaultModel: 'openai/gpt-5',
+    defaultModel: 'google/gemini-2.5-pro',
     
     // Available models
     availableModels: [
-      'openai/gpt-5',
       'google/gemini-2.5-pro'
     ],
     
     // Model display names
     modelDisplayNames: {
-      'openai/gpt-5': 'GPT-5',
       'google/gemini-2.5-pro': 'Gemini 2.5 Pro'
     },
     

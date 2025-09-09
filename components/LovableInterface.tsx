@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { globalKeyFix } from '../lib/globalKeyFix';
+import { logger } from '../lib/logger';
 import {
   Send,
   Code2,
@@ -29,7 +30,7 @@ import DeploymentOptions from './DeploymentOptions';
 import PreviewControls from './PreviewControls';
 import VersionControlPanel from './VersionControlPanel';
 import SandboxPreview from './SandboxPreview';
-import { supabaseBrowser } from '@/lib/supabase';
+import { supabaseBrowser as supabaseClient } from '@/lib/supabase';
 
 // Custom Chat Input Component
 interface CustomChatInputProps {
@@ -55,7 +56,7 @@ const CustomChatInput: React.FC<CustomChatInputProps> = ({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 300)}px`;
     }
   }, [value]);
 
@@ -73,21 +74,21 @@ const CustomChatInput: React.FC<CustomChatInputProps> = ({
   return (
     <form
       onSubmit={onSubmit}
-      className="group grid grid-cols-[1fr_auto] [grid-template-areas:'primary_trailing'] items-center w-full p-2.5 rounded-[28px] bg-white dark:bg-neutral-800 text-base shadow-lg"
+      className="group grid grid-cols-[1fr_auto] [grid-template-areas:'primary_trailing'] items-center w-full p-2 rounded-2xl bg-white/90 backdrop-blur border border-gray-200 dark:bg-neutral-800/90 dark:border-neutral-700 text-base shadow-md"
     >
       {/* Leading controls removed */}
 
       {/* Primary input */}
-      <div className="-my-2.5 flex min-h-14 items-center px-1.5 [grid-area:primary]">
+      <div className="-my-2 flex min-h-10 items-center px-2 [grid-area:primary]">
         <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="w-full rounded-md px-2 py-2 placeholder:text-gray-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none text-[16px] leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base max-h-[200px] bg-transparent flex-1"
+          className="w-full rounded-md px-2 py-1.5 placeholder:text-gray-500 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none text-[15px] leading-snug placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap md:text-base max-h-[160px] bg-transparent flex-1"
           id="chatinput"
           autoFocus
-          style={{ minHeight: '80px', height: '80px' }}
+          style={{ minHeight: '64px', height: '64px' }}
           placeholder={placeholder}
           maxLength={50000}
           disabled={disabled}
@@ -95,13 +96,13 @@ const CustomChatInput: React.FC<CustomChatInputProps> = ({
       </div>
 
       {/* Trailing controls */}
-      <div className="flex items-center gap-1.5 [grid-area:trailing]">
+      <div className="flex items-center gap-1.5 [grid-area:trailing] pr-1">
         {/* Send button only */}
         <button
           id="chatinput-send-message-button"
           type="submit"
           disabled={!value.trim() || isGenerating}
-          className="composer-submit-btn composer-submit-button-color flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-white transition-opacity duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50 shadow"
           aria-label="Send prompt"
         >
           <Send className="h-5 w-5" />
@@ -524,9 +525,10 @@ interface GeneratedFile {
 
 type LovableInterfaceProps = {
   projectId?: string;
+  initialPrompt?: string;
 };
 
-const LovableInterface: React.FC<LovableInterfaceProps> = ({ projectId }) => {
+const LovableInterface: React.FC<LovableInterfaceProps> = ({ projectId, initialPrompt }) => {
   // Helper function to generate unique message IDs
   // Use a ref to ensure atomic counter updates
   const messageIdCounterRef = useRef(0);
@@ -622,7 +624,7 @@ The code is being generated now and will appear in the editor. You'll see each f
   const [inputValue, setInputValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([]);
-  const [selectedModel, setSelectedModel] = useState('openai/gpt-5');
+  const [selectedModel, setSelectedModel] = useState('google/gemini-2.5-pro');
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [sandboxId, setSandboxId] = useState<string>('');
   const [previewPort, setPreviewPort] = useState<number>(5173); // Default to Vite port
@@ -637,6 +639,12 @@ The code is being generated now and will appear in the editor. You'll see each f
   const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [viewMode, setViewMode] = useState<'code' | 'preview'>('preview'); // Toggle between code and preview
   const [showSiteAnalyzer, setShowSiteAnalyzer] = useState(false);
+
+  // Project data state management
+  const [projectData, setProjectData] = useState<any>(null);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [projectVersions, setProjectVersions] = useState<any[]>([]);
+  const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -645,10 +653,193 @@ The code is being generated now and will appear in the editor. You'll see each f
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Load project data when projectId changes
+  useEffect(() => {
+    if (projectId) {
+      loadProjectData(projectId);
+    }
+  }, [projectId]);
+
+  // Auto-submit an initial prompt if provided (e.g., redirected from /dashboard)
+  const didSendInitialRef = useRef(false);
+  useEffect(() => {
+    if (!initialPrompt || didSendInitialRef.current) return;
+    // Seed the input and trigger send
+    setInputValue(initialPrompt);
+    didSendInitialRef.current = true;
+    // Defer to next tick so state is applied before sending
+    setTimeout(() => {
+      handleSendMessage();
+    }, 0);
+  }, [initialPrompt]);
+
+  // Function to load project data from Supabase
+  const loadProjectData = async (projectId: string) => {
+    try {
+      setIsLoadingProject(true);
+      logger.info('Loading project data', { projectId });
+
+      // Prefer authenticated POST to ensure owner_id filter passes
+      const { data: { session } } = supabaseClient ? await supabaseClient.auth.getSession() : { data: { session: null } } as any;
+      const authHeaders: any = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      let response = await fetch(`/api/projects/load`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ projectId, includeConversations: true })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load project: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.project) {
+        setProjectData(data);
+        setCurrentVersionId(data.currentVersion);
+
+        // Load existing code files
+        if (data.codeFiles && data.codeFiles.length > 0) {
+          const generatedFilesFromDB = data.codeFiles.map((file: any) => ({
+            path: file.path,
+            content: file.content,
+            language: getLanguageFromPath(file.path),
+            status: 'complete' as const
+          }));
+          setGeneratedFiles(generatedFilesFromDB);
+        }
+
+        // Load conversation history
+        if (data.conversations && data.conversations.length > 0) {
+          const messageHistory = data.conversations.map((conv: any) => ({
+            id: conv.message_id,
+            content: conv.content,
+            role: conv.role,
+            timestamp: new Date(conv.timestamp),
+            isGenerating: false,
+            thinkingSteps: []
+          }));
+          setMessages(messageHistory);
+        }
+
+        // Load versions
+        if (data.versions) {
+          setProjectVersions(data.versions);
+        }
+
+        // Update sandbox state if available
+        if (data.sandboxState) {
+          setSandboxId(data.sandboxState.sandbox_id || '');
+          setPreviewUrl(data.sandboxState.sandbox_url || '');
+        }
+
+        logger.info('Project data loaded successfully', {
+          projectId,
+          fileCount: data.codeFiles?.length || 0,
+          messageCount: data.conversations?.length || 0
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to load project data', error as Error, { projectId });
+      // Continue with empty project state
+    } finally {
+      setIsLoadingProject(false);
+    }
+  };
+
+  // Function to save project data
+  const saveProjectData = async (
+    changeType: 'initial' | 'incremental' | 'user_edit',
+    changeDescription: string,
+    userPrompt: string,
+    aiResponse: string,
+    codeFiles: GeneratedFile[],
+    conversationMessages: Message[]
+  ) => {
+    if (!projectId) return;
+
+    try {
+      logger.info('Saving project data', { projectId, changeType });
+
+      const saveData = {
+        projectId,
+        changeType,
+        changeDescription,
+        userPrompt,
+        aiResponse,
+        codeFiles: codeFiles.map(file => ({
+          path: file.path,
+          name: file.path.split('/').pop() || 'unknown',
+          content: file.content,
+          type: getLanguageFromPath(file.path)
+        })),
+        conversations: conversationMessages.map(msg => ({
+          messageId: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp.toISOString(),
+          metadata: {}
+        })),
+        sandboxState: {
+          sandboxId,
+          sandboxUrl: previewUrl,
+          sandboxStatus: 'running',
+          configuration: {}
+        }
+      };
+
+      // Attach auth (reuse same session if available)
+      const saveSession = (supabaseClient ? (await supabaseClient.auth.getSession()).data.session : null) as any;
+      const saveHeaders: any = { 'Content-Type': 'application/json' };
+      if (saveSession?.access_token) {
+        saveHeaders['Authorization'] = `Bearer ${saveSession.access_token}`;
+      }
+      const response = await fetch('/api/projects/save', {
+        method: 'POST',
+        headers: saveHeaders,
+        body: JSON.stringify(saveData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save project: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        setCurrentVersionId(result.versionId);
+        logger.info('Project data saved successfully', {
+          projectId,
+          versionId: result.versionId
+        });
+
+        // Reload project data to get updated state
+        await loadProjectData(projectId);
+      }
+    } catch (error) {
+      logger.error('Failed to save project data', error as Error, { projectId });
+    }
+  };
+
+  // Helper function to get language from file path
+  const getLanguageFromPath = (path: string): string => {
+    if (path.endsWith('.tsx') || path.endsWith('.ts')) return 'tsx';
+    if (path.endsWith('.jsx') || path.endsWith('.js')) return 'jsx';
+    if (path.endsWith('.css')) return 'css';
+    if (path.endsWith('.scss')) return 'scss';
+    if (path.endsWith('.html')) return 'html';
+    if (path.endsWith('.json')) return 'json';
+    if (path.endsWith('.md')) return 'markdown';
+    return 'text';
+  };
+
   // Realtime: subscribe to file updates for this project and patch editor state
   useEffect(() => {
-    if (!projectId || !supabaseBrowser) return;
-    const channel = supabaseBrowser
+    if (!projectId || !supabaseClient) return;
+    const channel = supabaseClient
       .channel(`files-${projectId}`)
       .on('postgres_changes', {
         event: '*',
@@ -668,7 +859,7 @@ The code is being generated now and will appear in the editor. You'll see each f
         }
       })
       .subscribe();
-    return () => { supabaseBrowser.removeChannel(channel); };
+    return () => { supabaseClient.removeChannel(channel); };
   }, [projectId]);
 
 
@@ -679,7 +870,7 @@ The code is being generated now and will appear in the editor. You'll see each f
 
     const userMessage: Message = {
       id: generateMessageId(),
-      role: 'user',
+      role: 'user' as const,
       content: inputValue.trim(),
       timestamp: new Date()
     };
@@ -691,7 +882,7 @@ The code is being generated now and will appear in the editor. You'll see each f
     // Add assistant message placeholder
     const assistantMessage: Message = {
       id: generateMessageId(),
-      role: 'assistant',
+      role: 'assistant' as const,
       content: '',
       timestamp: new Date(),
       isGenerating: true
@@ -699,8 +890,8 @@ The code is being generated now and will appear in the editor. You'll see each f
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      // Use streaming AI code generation instead of simulation
-      await startStreamingGeneration(userMessage.content);
+      // Use simplified JSON response instead of streaming
+      await startStreamingGeneration(userMessage.content, assistantMessage.id);
     } catch (error) {
       console.error('Error generating code:', error);
       setMessages(prev => prev.map(msg => 
@@ -714,7 +905,7 @@ The code is being generated now and will appear in the editor. You'll see each f
   };
 
   // Streaming code generation via backend API
-  const startStreamingGeneration = async (prompt: string) => {
+  const startStreamingGeneration = async (prompt: string, assistantMessageId: string) => {
     const controller = new AbortController();
     const signal = controller.signal;
 
@@ -757,177 +948,121 @@ The code is being generated now and will appear in the editor. You'll see each f
       }
     }
 
-    // Stream from backend (SSE JSON events)
-    const res = await fetch('/api/generate-ai-code-stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    // Determine change type based on existing files
+    const changeType = generatedFiles.length > 0 ? 'incremental' : 'initial';
+
+    // Get existing files for incremental generation
+    const existingFiles = generatedFiles.map(file => ({
+      path: file.path,
+      content: file.content
+    }));
+
+    // Stream from enhanced backend (SSE JSON events)
+    const genSession = (supabaseClient ? (await supabaseClient.auth.getSession()).data.session : null) as any;
+    const genHeaders: any = { 'Content-Type': 'application/json' };
+    if (genSession?.access_token) {
+      genHeaders['Authorization'] = `Bearer ${genSession.access_token}`;
+    }
+    // Prepare and validate the request payload
+    const cleanExistingFiles = (existingFiles || []).map(file => ({
+      path: file.path,
+      content: file.content
+    }));
+
+    const requestPayload = {
         prompt,
+        projectId,
         model: selectedModel,
-        context: { sandboxId },
-        isEdit: false
-      }),
+        changeType,
+      existingFiles: cleanExistingFiles
+    };
+
+    console.log('Frontend: Prepared request payload:', {
+      prompt: requestPayload.prompt,
+      model: requestPayload.model,
+      changeType: requestPayload.changeType,
+      existingFilesCount: requestPayload.existingFiles.length,
+      projectId: requestPayload.projectId
+    });
+
+    let requestBody: string;
+    try {
+      requestBody = JSON.stringify(requestPayload);
+      console.log('Frontend: JSON serialized successfully, length:', requestBody.length);
+    } catch (jsonError) {
+      console.error('Frontend: JSON serialization failed:', jsonError);
+      throw new Error(`Failed to serialize request: ${jsonError.message}`);
+    }
+
+    const res = await fetch('/api/generate-ai-code-stream/enhanced-route', {
+              method: 'POST',
+      headers: genHeaders,
+      body: requestBody,
       signal
     });
 
-    if (!res.ok || !res.body) {
-      throw new Error('Failed to start streaming generation');
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Frontend: API request failed', {
+        status: res.status,
+        statusText: res.statusText,
+        errorText: errorText.substring(0, 500)
+      });
+      throw new Error(`API request failed: ${res.status} ${res.statusText} - ${errorText}`);
     }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let sseBuffer = '';
+    // Parse JSON response instead of streaming
+    const responseData = await res.json();
+    console.log('Frontend: Received response:', responseData);
 
-    // Update assistant placeholder text minimally
-    setMessages(prev => prev.map(m => m.isGenerating ? { ...m, content: 'Generating code…' } : m));
+    // Update assistant message with success
+    setMessages(prev => prev.map(m =>
+      m.id === assistantMessageId
+        ? { ...m, content: 'Code generation completed successfully!', isGenerating: false }
+        : m
+    ));
 
-    // Helpers to parse <file> tags across streamed chunks
-    const fileOpen = /<file\s+path="([^"]+)">/i;
-    const fileClose = /<\/file>/i;
-    let tagBuffer = '';
-    let currentPath: string | null = null;
-    let currentContent = '';
+    if (responseData.success && responseData.data?.generatedFiles) {
+      // Add generated files to the state
+      const files = responseData.data.generatedFiles.map((file: any) => ({
+        path: file.path,
+        content: file.content,
+        language: file.language,
+        status: 'complete' as const
+      }));
 
-    const processTextChunk = (text: string) => {
-      tagBuffer += text;
-      while (tagBuffer.length) {
-        if (currentPath === null) {
-          const openMatch = tagBuffer.match(fileOpen);
-          if (!openMatch) break;
-          const idx = (openMatch.index || 0) + openMatch[0].length;
-          currentPath = openMatch[1];
-          tagBuffer = tagBuffer.slice(idx);
-          currentContent = '';
-        } else {
-          const closeMatch = tagBuffer.match(fileClose);
-          if (!closeMatch) {
-            // Need more data for this file
-            currentContent += tagBuffer;
-            tagBuffer = '';
-            break;
-          }
-          const idx = closeMatch.index || 0;
-          currentContent += tagBuffer.slice(0, idx);
-          tagBuffer = tagBuffer.slice(idx + closeMatch[0].length);
-          const ext = (currentPath.split('.').pop() || '').toLowerCase();
-          const language = ext === 'tsx' || ext === 'ts' ? 'tsx' : (ext === 'jsx' ? 'jsx' : (ext === 'css' ? 'css' : 'text'));
-          upsertFile(currentPath, currentContent, language);
-          currentPath = null;
-          currentContent = '';
-        }
-      }
-    };
+      setGeneratedFiles(prev => [...prev, ...files]);
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      sseBuffer += decoder.decode(value, { stream: true });
+      // Apply generated files to the running sandbox so preview updates
+      try {
+        const generatedCodeText = files
+          .map(f => `<file path="${f.path}">\n${f.content}\n</file>`)
+          .join('\n\n');
 
-      // Process complete SSE events (separated by blank lines)
-      let sepIndex = sseBuffer.indexOf('\n\n');
-      while (sepIndex !== -1) {
-        const eventChunk = sseBuffer.slice(0, sepIndex);
-        sseBuffer = sseBuffer.slice(sepIndex + 2);
-        sepIndex = sseBuffer.indexOf('\n\n');
-
-        const dataLine = eventChunk.split('\n').find(l => l.startsWith('data: '));
-        if (!dataLine) continue;
-        const jsonStr = dataLine.slice(6);
-        let evt: any;
-        try { evt = JSON.parse(jsonStr); } catch { continue; }
-
-        if (evt?.type === 'stream' && typeof evt.text === 'string') {
-          processTextChunk(evt.text);
-        }
-        if (evt?.type === 'complete') {
-          // Final parse of the full response to ensure completeness
-          const generatedCode = String(evt.generatedCode || '');
-          const fileRegex = /<file path="([^"]+)">([\s\S]*?)<\/file>/g;
-          const finalFiles: GeneratedFile[] = [];
-          let m: RegExpExecArray | null;
-          while ((m = fileRegex.exec(generatedCode)) !== null) {
-            const p = m[1];
-            const c = m[2];
-            const ext = (p.split('.').pop() || '').toLowerCase();
-            const language = ext === 'tsx' || ext === 'ts' ? 'tsx' : (ext === 'jsx' ? 'jsx' : (ext === 'css' ? 'css' : 'text'));
-            finalFiles.push({ path: p, content: c, language: language as any, status: 'complete' });
-          }
-          if (finalFiles.length > 0) {
-            setGeneratedFiles(finalFiles);
-          }
-
-          // Apply files directly from generated response for accuracy
-          try {
-            const applyResponse = await fetch('/api/apply-ai-code', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ response: generatedCode, isEdit: false, packages: evt.packagesToInstall || [] })
-            });
-            if (!applyResponse.ok) {
-              console.error('Apply to sandbox failed');
-            }
-          } catch (e) {
-            console.error('Sandbox apply error:', e);
-          }
-
-          // Persist files to Supabase (if project provided)
-          try {
-            if (projectId) {
-              await fetch('/api/files/save', {
+        const applyRes = await fetch('/api/apply-ai-code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId, files: finalFiles.map(f => ({ path: f.path, content: f.content })) })
+          body: JSON.stringify({ response: generatedCodeText, isEdit: false, packages: [] })
               });
-            }
-          } catch (e) {
-            console.error('Persist files error:', e);
-          }
 
-          // Switch to real sandbox URL and show loading until ready
+        if (!applyRes.ok) {
+          console.error('Apply to sandbox failed');
+        } else {
+          // Wait for sandbox to become ready and set preview URL
           setIsPreviewLoading(true);
           await pollSandboxUntilReady();
           setIsPreviewLoading(false);
-        }
-      }
-    }
-
-    // Mark files as complete
-    setGeneratedFiles(prev => prev.map(f => ({ ...f, status: 'complete' })));
-
-    // Apply to sandbox and refresh preview using existing flow
-    try {
-      // Reuse existing apply flow by creating a mock response from current state
-      const payload = generateMockAIResponse(
-        (function(files) { return files; })(
-          (await (async () => {
-            // capture latest
-            let latest: GeneratedFile[] = [];
-            setGeneratedFiles(prev => (latest = prev, prev));
-            return latest;
-          })())
-        )
-      );
-
-      const applyResponse = await fetch('/api/apply-ai-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ response: payload, isEdit: false, packages: [] })
-      });
-      if (!applyResponse.ok) {
-        console.error('Apply to sandbox failed');
       }
     } catch (e) {
       console.error('Sandbox apply error:', e);
+      }
+    } else {
+      throw new Error('Invalid response format');
     }
 
-    // Only prefer real sandbox; keep loading state until it's ready
-    setIsPreviewLoading(true);
-    await pollSandboxUntilReady();
-    setIsPreviewLoading(false);
+    console.log('Code generation completed successfully!');
 
-    // Finalize assistant message
-    setMessages(prev => prev.map(m => m.isGenerating ? { ...m, isGenerating: false } : m));
-    setIsGenerating(false);
+
   };
 
   // Poll sandbox status and switch preview to real URL when ready
@@ -1161,7 +1296,7 @@ The code is being generated now and will appear in the editor. You'll see each f
 
       // First, ensure we have a sandbox created
       try {
-        console.log('Ensuring sandbox exists...');
+        logger.info('Ensuring sandbox exists');
         const sandboxResponse = await fetch('/api/create-ai-sandbox', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1169,21 +1304,21 @@ The code is being generated now and will appear in the editor. You'll see each f
 
         if (sandboxResponse.ok) {
           const sandboxData = await sandboxResponse.json();
-          console.log('Sandbox created successfully:', sandboxData);
+          logger.info('Sandbox created successfully', { sandboxData });
           if (sandboxData.sandboxId) {
           setSandboxId(sandboxData.sandboxId);
           }
           if (sandboxData.url) {
           setPreviewUrl(sandboxData.url);
-            console.log('Sandbox URL set:', sandboxData.url);
+            logger.debug('Sandbox URL set', { url: sandboxData.url });
           }
         } else {
           const errorText = await sandboxResponse.text();
-          console.error('Failed to create sandbox:', errorText);
+          logger.error('Failed to create sandbox', new Error(errorText));
           // Don't throw error, continue with fallback
         }
       } catch (error) {
-        console.error('Error creating sandbox:', error);
+        logger.error('Error creating sandbox', error as Error);
         // Don't throw error, continue with fallback
       }
     
@@ -1207,12 +1342,12 @@ The code is being generated now and will appear in the editor. You'll see each f
         : msg
     ));
     
-    console.log('Added thinking state to message:', messageId, 'with steps:', thinkingSteps.length);
+    logger.debug('Added thinking state to message', { messageId, stepsCount: thinkingSteps.length });
 
     // Simulate thinking process with reduced state updates
     let stepIndex = 0;
     const processSteps = async () => {
-      console.log('Starting thinking process with', thinkingSteps.length, 'steps');
+      logger.debug('Starting thinking process', { stepsCount: thinkingSteps.length });
       
       // Update all steps to completed at once to reduce blinking
       const completedSteps = thinkingSteps.map(step => ({
@@ -1237,7 +1372,7 @@ The code is being generated now and will appear in the editor. You'll see each f
 
       // Simulate total processing time
       await new Promise(resolve => setTimeout(resolve, 3000));
-      console.log('Thinking process completed');
+      logger.debug('Thinking process completed');
     };
 
     await processSteps();
@@ -1661,8 +1796,10 @@ export default App;`,
     setTimeout(async () => {
       // Apply generated files to the sandbox
       try {
-        console.log('Applying generated files to sandbox...');
-        console.log('Generated files:', allFiles.map(f => ({ path: f.path, contentLength: f.content.length })));
+        logger.info('Applying generated files to sandbox');
+        logger.debug('Generated files', {
+          files: allFiles.map(f => ({ path: f.path, contentLength: f.content.length }))
+        });
         
         const applyResponse = await fetch('/api/apply-ai-code', {
           method: 'POST',
@@ -1676,7 +1813,7 @@ export default App;`,
 
         if (applyResponse.ok) {
           const applyResult = await applyResponse.json();
-          console.log('Files applied successfully to sandbox:', applyResult);
+          logger.info('Files applied successfully to sandbox', { applyResult });
           
           // Wait a bit for the sandbox to process the files
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1686,21 +1823,21 @@ export default App;`,
             const statusResponse = await fetch('/api/sandbox-status');
             if (statusResponse.ok) {
               const statusData = await statusResponse.json();
-              console.log('Sandbox status:', statusData);
+              logger.debug('Sandbox status', statusData);
               if (statusData.url) {
                 setPreviewUrl(statusData.url);
-                console.log('Updated preview URL to sandbox:', statusData.url);
+                logger.info('Updated preview URL to sandbox', { url: statusData.url });
               }
             }
           } catch (statusError) {
-            console.error('Error getting sandbox status:', statusError);
+            logger.error('Error getting sandbox status', statusError as Error);
           }
         } else {
           const errorText = await applyResponse.text();
-          console.error('Failed to apply files to sandbox:', errorText);
+          logger.error('Failed to apply files to sandbox', new Error(errorText));
         }
       } catch (error) {
-        console.error('Error applying files:', error);
+        logger.error('Error applying files', error as Error);
       }
 
       // Create sandbox preview - this will use the sandbox URL if available, otherwise fallback
@@ -1744,14 +1881,14 @@ export default App;`,
       // Validate port configuration
       const newPort = 5173;
       if (typeof newPort !== 'number' || newPort <= 0 || newPort >= 65536) {
-        console.error('Invalid port configuration:', newPort);
+        logger.error('Invalid port configuration', new Error(`Invalid port: ${newPort}`));
       } else {
-        console.log('Setting preview port to:', newPort);
+        logger.info('Setting preview port', { port: newPort });
       }
 
       // For now, let's use the fallback preview immediately since sandbox isn't working
       // In a real implementation, this would connect to an actual sandbox
-      console.log('Creating fallback preview since sandbox is not available...');
+      logger.info('Creating fallback preview since sandbox is not available');
       
       // Create a fallback preview URL using the generated files
       const fallbackHtml = generateFallbackPreview(generatedFiles);
@@ -1759,7 +1896,7 @@ export default App;`,
       const fallbackUrl = URL.createObjectURL(blob);
       setPreviewUrl(fallbackUrl);
 
-      console.log('Fallback Preview Setup:', {
+      logger.debug('Fallback Preview Setup', {
         sandboxId: newSandboxId,
         port: newPort,
         previewUrl: fallbackUrl,
@@ -1968,7 +2105,6 @@ export default App;`,
             onChange={(e) => setSelectedModel(e.target.value)}
             className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
-            <option value="openai/gpt-5">GPT-5</option>
             <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
           </select>
 
