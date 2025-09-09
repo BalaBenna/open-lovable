@@ -1,0 +1,28 @@
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #4b5563; /* gray-600 */
+  border-radius: 4px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Prism line background decorations removal if any */
+/* Remove any background applied by tokens or line highlighting */
+pre[class*="language-"] {
+  background: transparent !important;
+}
+pre[class*="language-"] > code[class*="language-"] {
+  background: transparent !important;
+}
+pre[class*="language-"] .token,
+pre[class*="language-"] .line-highlight,
+pre[class*="language-"] .highlight-line,
+pre[class*="language-"] .token-line {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+

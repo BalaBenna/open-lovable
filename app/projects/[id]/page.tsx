@@ -1,12 +1,11 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { supabaseBrowser as supabase } from '@/lib/supabase';
 import LovableInterface from '@/components/LovableInterface';
 
 export default function ProjectPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [project, setProject] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -15,11 +14,13 @@ export default function ProjectPage() {
   const projectId = params.id as string;
 
   useEffect(() => {
-    // Get query from URL parameters
-    const urlQuery = searchParams.get('query');
-    if (urlQuery) {
-      setQuery(decodeURIComponent(urlQuery));
-    }
+    // Load initial prompt from sessionStorage (URL stays clean)
+    try {
+      if (typeof window !== 'undefined' && projectId) {
+        const stored = sessionStorage.getItem(`initialPrompt:${projectId}`);
+        if (stored) setQuery(stored);
+      }
+    } catch {}
 
     const checkAuthAndLoadProject = async () => {
       try {
@@ -44,11 +45,7 @@ export default function ProjectPage() {
         const data = await response.json();
         setProject(data.project);
 
-        // If we have a query, start processing it
-        if (urlQuery) {
-          // TODO: Implement AI processing here
-          console.log('Processing query:', decodeURIComponent(urlQuery));
-        }
+        // If we have a query, it will be passed to LovableInterface via props
 
       } catch (error) {
         console.error('Error loading project:', error);
@@ -60,7 +57,7 @@ export default function ProjectPage() {
     if (projectId) {
       checkAuthAndLoadProject();
     }
-  }, [projectId, searchParams, router]);
+  }, [projectId, router]);
 
   if (isLoading) {
     return (

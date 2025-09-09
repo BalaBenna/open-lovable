@@ -138,6 +138,8 @@
   --radius: 0.5rem;
 }
 
+@import '../styles/editor.css';
+
 @layer utilities {
   /* Hide scrollbar for Chrome, Safari and Opera */
   .scrollbar-hide::-webkit-scrollbar {

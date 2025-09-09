@@ -19,8 +19,7 @@ import {
   Mic,
   Globe,
   Zap,
-  ShoppingCart,
-  User
+  ShoppingCart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import RealtimeCodeEditor from './RealtimeCodeEditor';
@@ -424,7 +423,7 @@ const SettingsModal: React.FC<{
                       { name: 'Dashboard', description: 'Admin dashboard with charts', icon: Zap },
                       { name: 'E-commerce', description: 'Online store template', icon: ShoppingCart },
                       { name: 'Blog', description: 'Content management system', icon: FileText },
-                      { name: 'Portfolio', description: 'Personal portfolio website', icon: User },
+                      { name: 'Portfolio', description: 'Personal portfolio website', icon: Code2 },
                       { name: 'SaaS', description: 'Software as a service template', icon: Rocket }
                     ].map((template, index) => (
                       <div
@@ -990,8 +989,9 @@ The code is being generated now and will appear in the editor. You'll see each f
       requestBody = JSON.stringify(requestPayload);
       console.log('Frontend: JSON serialized successfully, length:', requestBody.length);
     } catch (jsonError) {
-      console.error('Frontend: JSON serialization failed:', jsonError);
-      throw new Error(`Failed to serialize request: ${jsonError.message}`);
+      const err = jsonError as Error;
+      console.error('Frontend: JSON serialization failed:', err);
+      throw new Error(`Failed to serialize request: ${err.message}`);
     }
 
     const res = await fetch('/api/generate-ai-code-stream/enhanced-route', {
@@ -1036,7 +1036,7 @@ The code is being generated now and will appear in the editor. You'll see each f
       // Apply generated files to the running sandbox so preview updates
       try {
         const generatedCodeText = files
-          .map(f => `<file path="${f.path}">\n${f.content}\n</file>`)
+          .map((f: { path: string; content: string; }) => `<file path="${f.path}">\n${f.content}\n</file>`)
           .join('\n\n');
 
         const applyRes = await fetch('/api/apply-ai-code', {

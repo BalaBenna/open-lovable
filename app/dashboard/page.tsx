@@ -7,7 +7,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -20,14 +20,11 @@ export default function DashboardPage() {
     checkAuth();
   }, [router]);
 
+  // Focus input on mount
   useEffect(() => {
-    // Auto-resize textarea based on content
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '30px'; // Reset to minimum height
-      const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = Math.max(30, scrollHeight) + 'px';
-    }
-  }, [message]);
+    inputRef.current?.focus();
+  }, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,9 +59,13 @@ export default function DashboardPage() {
 
       const data = await response.json();
 
-      // Redirect to the project page with the query
-      const encodedQuery = encodeURIComponent(message);
-      router.push(`/projects/${data.id}?query=${encodedQuery}`);
+      // Save initial prompt locally and redirect without query params
+      try {
+        if (typeof window !== 'undefined' && data?.id) {
+          sessionStorage.setItem(`initialPrompt:${data.id}`, message);
+        }
+      } catch {}
+      router.push(`/projects/${data.id}`);
 
     } catch (error) {
       console.error('Error creating project:', error);
@@ -113,66 +114,34 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-[740px]">
-          {/* Welcome Message */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Lovable</h1>
-            <p className="text-gray-600">Describe what you want to build, and I'll help you create it.</p>
-          </div>
-
-          {/* Chat Interface */}
-          <div className="bg-white rounded-3xl shadow-lg border border-gray-200/50 overflow-hidden">
-            {/* Chat Messages Area */}
-            <div className="h-96 p-6 overflow-y-auto bg-gray-50/50">
-              <div className="text-center text-gray-500 py-8">
-                <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        <div className="w-full max-w-[960px]">
+          <form onSubmit={handleSubmit} className="flex items-center gap-4">
+            <input
+              ref={inputRef}
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Describe what you want to build..."
+              className="w-full h-[56px] px-4 text-base border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 bg-white"
+            />
+            <button
+              type="submit"
+              disabled={!message.trim() || isLoading}
+              className="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              aria-label="Send"
+            >
+              {isLoading ? (
+                <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <p className="text-sm">Start a conversation by typing your message below</p>
-              </div>
-            </div>
-
-            {/* Input Area */}
-            <div className="p-6 bg-white border-t border-gray-200/50">
-              <form onSubmit={handleSubmit} className="flex items-end space-x-3">
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={textareaRef}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Describe what you want to build..."
-                    className="w-full min-h-[30px] max-h-32 px-4 py-3 text-sm border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-hidden transition-all duration-200 placeholder-gray-400"
-                    style={{ height: '30px' }}
-                    rows={1}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={!message.trim() || isLoading}
-                  className="flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  {isLoading ? (
-                    <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  )}
-                </button>
-              </form>
-
-              {/* Helper Text */}
-              <div className="mt-3 text-center">
-                <p className="text-xs text-gray-500">
-                  Press Enter to send, Shift + Enter for new line
-                </p>
-              </div>
-            </div>
-          </div>
+              ) : (
+                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 11-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+          </form>
         </div>
       </main>
     </div>

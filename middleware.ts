@@ -15,10 +15,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect root path to /landing
+  // Redirect root path to the new dashboard layout
   if (pathname === '/') {
     const url = request.nextUrl.clone();
-    url.pathname = '/landing';
+    url.pathname = '/dashboard';
     return NextResponse.redirect(url);
   }
 

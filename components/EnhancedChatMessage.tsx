@@ -111,7 +111,7 @@ const EnhancedChatMessage: React.FC<EnhancedChatMessageProps> = ({
   const getMessageBubbleStyle = () => {
     switch (message.role) {
       case 'user':
-        return 'bg-blue-600 text-white ml-12';
+        return 'bg-[#F7F4ED] text-gray-900';
       case 'assistant':
         return 'bg-gray-100 text-gray-900 mr-12';
       case 'system':
@@ -278,12 +278,7 @@ const EnhancedChatMessage: React.FC<EnhancedChatMessageProps> = ({
         )}
       </div>
       
-      {/* User Avatar */}
-      {message.role === 'user' && (
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getAvatarColor()}`}>
-          {getAvatarIcon()}
-        </div>
-      )}
+      {/* User avatar removed intentionally */}
     </motion.div>
   );
 };
