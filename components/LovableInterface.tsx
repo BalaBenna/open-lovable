@@ -2331,7 +2331,7 @@ export default App;`,
             </AnimatePresence>
 
             {/* Code Editor Container with fixed height and internal scrolling */}
-            <div className="flex-1 flex flex-col min-h-0 bg-gray-900 rounded-xl m-0 pb-4 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0 bg-gray-900 rounded-xl m-0 pb-0 overflow-hidden">
               <div className="flex-1 overflow-hidden">
               <RealtimeCodeEditor
                 isGenerating={isGenerating}
