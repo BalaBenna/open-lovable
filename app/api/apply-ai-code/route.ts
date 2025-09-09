@@ -15,6 +15,24 @@ interface ParsedResponse {
   structure: string | null;
 }
 
+// Small utility to avoid hanging/ECONNREFUSED on local endpoints
+async function safePostJson(url: string, body: unknown, timeoutMs: number = 2000): Promise<Response | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    return res;
+  } catch (_e) {
+    return null;
+  }
+}
+
 function parseAIResponse(response: string): ParsedResponse {
   const sections = {
     files: [] as Array<{ path: string; content: string }>,
@@ -235,15 +253,15 @@ export async function POST(request: NextRequest) {
       
       try {
         console.log('[apply-ai-code] Calling detect-and-install-packages...');
-        const packageResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/detect-and-install-packages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files: filesForPackageDetection })
-        });
+        const packageResponse = await safePostJson(
+          `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/detect-and-install-packages`,
+          { files: filesForPackageDetection },
+          2500
+        );
         
-        console.log('[apply-ai-code] Package detection response status:', packageResponse.status);
-        
-        if (packageResponse.ok) {
+        if (!packageResponse) {
+          console.warn('[apply-ai-code] Package detection endpoint unreachable, skipping detection.');
+        } else if (packageResponse.ok) {
           const packageResult = await packageResponse.json();
           console.log('[apply-ai-code] Package installation result:', JSON.stringify(packageResult, null, 2));
         
@@ -268,13 +286,14 @@ export async function POST(request: NextRequest) {
           console.log('[apply-ai-code] Packages were installed, forcing Vite restart...');
           
           try {
-            // Call the restart-vite endpoint
-            const restartResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/restart-vite`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' }
-            });
-            
-            if (restartResponse.ok) {
+            const restartResponse = await safePostJson(
+              `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/restart-vite`,
+              {},
+              2000
+            );
+            if (!restartResponse) {
+              console.warn('[apply-ai-code] restart-vite unreachable, skipping restart.');
+            } else if (restartResponse.ok) {
               const restartResult = await restartResponse.json();
               console.log('[apply-ai-code] Vite restart result:', restartResult.message);
             } else {
@@ -369,7 +388,7 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Only create App.jsx if it's not an edit and doesn't exist
+    // Create or overwrite App.jsx to render generated components so preview updates reliably
     const appFileInParsed = parsed.files.some(f => {
       const normalized = f.path.replace(/^\//, '').replace(/^src\//, '');
       return normalized === 'App.jsx' || normalized === 'App.tsx';
@@ -380,7 +399,7 @@ export async function POST(request: NextRequest) {
                          global.existingFiles.has('App.jsx') ||
                          global.existingFiles.has('App.tsx');
     
-    if (!isEdit && !appFileInParsed && !appFileExists && parsed.files.length > 0) {
+    if (!isEdit && !appFileInParsed && parsed.files.length > 0) {
       // Find all component files
       const componentFiles = parsed.files.filter(f => 
         (f.path.endsWith('.jsx') || f.path.endsWith('.tsx')) &&
@@ -416,7 +435,7 @@ export async function POST(request: NextRequest) {
         ? mainComponent.path.split('/').pop()?.replace(/\.(jsx|tsx)$/, '') 
         : null;
       
-      // Create App.jsx with better structure
+      // Create App.jsx with better structure (overwrite to ensure preview renders new UI)
       const appContent = `import React from 'react';
 ${imports}
 
@@ -432,16 +451,9 @@ function App() {
 export default App;`;
       
       try {
-        await global.activeSandbox.runCode(`
-file_path = "/home/user/app/src/App.jsx"
-file_content = """${appContent.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"""
-
-with open(file_path, 'w') as f:
-    f.write(file_content)
-
-print(f"Auto-generated: {file_path}")
-        `);
-        results.filesCreated.push('src/App.jsx (auto-generated)');
+        await global.activeSandbox.files.write('/home/user/app/src/App.jsx', appContent);
+        const label = appFileExists ? 'src/App.jsx (overwritten for preview)' : 'src/App.jsx (auto-generated)';
+        results.filesCreated.push(label);
       } catch (error) {
         results.errors.push(`Failed to create App.jsx: ${(error as Error).message}`);
       }

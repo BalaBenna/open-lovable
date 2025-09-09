@@ -95,7 +95,7 @@ export default function SandboxPreview({
       {/* Main Preview - Full height without white container */}
       <div className="relative flex-1 bg-gray-900 rounded-lg overflow-hidden">
         {isLoading && (
-          <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-10 pointer-events-none">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
             <p className="text-sm text-gray-400">
@@ -132,9 +132,9 @@ export default function SandboxPreview({
             <iframe
               key={iframeKey}
               src={displayUrl}
-              className="w-full h-full bg-white"
+              className="w-full h-full bg-white pointer-events-auto"
               title={`${type} preview`}
-              sandbox="allow-scripts allow-same-origin allow-forms"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
               onError={handleIframeError}
               onLoad={() => {
                 setIframeError(null);

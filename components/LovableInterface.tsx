@@ -1047,14 +1047,32 @@ The code is being generated now and will appear in the editor. You'll see each f
 
         if (!applyRes.ok) {
           console.error('Apply to sandbox failed');
+          // Fallback: ensure a local preview is created so user sees something
+          try {
+            const fallbackHtml = generateFallbackPreview(files);
+            const blob = new Blob([fallbackHtml], { type: 'text/html' });
+            const fallbackUrl = URL.createObjectURL(blob);
+            setPreviewUrl(fallbackUrl);
+            setViewMode('preview');
+          } catch (_) {}
         } else {
           // Wait for sandbox to become ready and set preview URL
           setIsPreviewLoading(true);
           await pollSandboxUntilReady();
           setIsPreviewLoading(false);
+          // Ensure we switch to preview after apply completes
+          setViewMode('preview');
       }
     } catch (e) {
       console.error('Sandbox apply error:', e);
+      // Fallback: ensure a local preview is created
+      try {
+        const fallbackHtml = generateFallbackPreview(files);
+        const blob = new Blob([fallbackHtml], { type: 'text/html' });
+        const fallbackUrl = URL.createObjectURL(blob);
+        setPreviewUrl(fallbackUrl);
+        setViewMode('preview');
+      } catch (_) {}
       }
     } else {
       throw new Error('Invalid response format');

@@ -27,7 +27,9 @@ export default function ProjectPage() {
         // Check authentication
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          router.replace('/landing');
+          // If session is temporarily unavailable, avoid redirecting away.
+          // We'll just skip loading protected project data.
+          setIsLoading(false);
           return;
         }
 
